@@ -216,8 +216,7 @@ npm run build && npm run serve                 # the whole site with this reposi
 git add -A data inbox && git commit -m "ingest: ..." && git push
 ```
 
-**Adding a match yourself.** As the owner you cannot use the Contribute page's upload (GitHub does not let you fork your own repository, and `master` is
-protected: "Uploads are disabled"). Use a branch and a pull request, so that the bot checks it like any other:
+**Adding a match yourself.** The Contribute page works for you as for anyone (its ZIP, dropped into a "Submit a match" issue). With git, use a branch and a pull request, so that the bot checks it like any other:
 
 ```sh
 cd ~/repo/bg-db-data-1 && git pull
@@ -303,7 +302,8 @@ Corrections and enrichments of a match of an archived repository are written in 
 | the `issue-to-pr` workflow fails: "GitHub Actions is not permitted to create or approve pull requests" | the secret `BGDB_BOT_TOKEN` is missing (section 3). The match is already on the branch `submission/issue-<n>`: once the secret is set, run the workflow again (`gh run rerun <run id> -R pipandlove/bg-db-data-1`, or edit the issue), and it opens the pull request |
 | pull requests made from issues have no check | the secret `BGDB_BOT_TOKEN` |
 | a pull request was merged, but its matches stay in `inbox/` (no ingest run) | the merge was made with GitHub's own token, whose pushes start no workflow: set `BGDB_BOT_TOKEN` (and use tools `v3` or later), then run the ingest once by hand: `gh workflow run ingest.yml -R pipandlove/bg-db-data-1` |
-| GitHub's upload page says "Uploads are disabled" | uploads need write access, so contributors upload into their own copy (fork): the Contribute page leads them there once they type their GitHub name. The owner cannot fork their own repository and `master` is protected: add matches with git (section 6) |
+| the ZIP dropped into the issue form gives "Failed to upload" | the GitHub account cannot upload files yet: in its Settings > Emails, a verified address and a backup address (that fixed it for the test account); an ad blocker can also block it. The Contribute page says so in step 4 |
+| GitHub's upload page says "Uploads are disabled" | uploads need write access: contributors use the issue form with the ZIP instead (the Contribute page leads them there). For the owner: add matches with git (section 6) |
 | a warning about Pages, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
 | the site or the Contribute page: "The database could not be loaded (https://.../bg-db-data-1/registry.json: HTTP 404)" | the data repository was never published: its `pages` workflow runs on a push that changes `data/`, and a new repository has none. Run it once: `gh workflow run pages.yml -R pipandlove/bg-db-data-1` (or Actions > pages > Run workflow); also check that Pages is on (section 4) |
 | a workflow of the data repository failed after 0 s, "a workflow file issue" | it called `bg-db` at a tag that did not exist yet (section 1.4); once the tag is pushed, the next run works |

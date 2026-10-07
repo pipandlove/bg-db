@@ -539,9 +539,7 @@ test('sources.json: the site reads several data repositories, sends contribution
     const linnet = M.rows.find((r) => r.id === ID_LINNET);
     assert.deepEqual([linnet.event, linnet.enriched], ['Corrected Open', true], 'a correction made in the current repository applies to a match of the archived one');
     const contrib = await loadSite(tools.a('dist'), 'js/contribute-model.js');
-    const gl = contrib.githubLinks(M.registry, [], '', 'alice');
-    assert.equal(gl.fork, 'https://github.com/owner/bg-db-data-2/fork');
-    assert.match(gl.upload, /^https:\/\/github\.com\/alice\/bg-db-data-2\/upload\/main\/inbox$/, 'the upload page of the contributor\'s copy of the current repository');
+    assert.equal(contrib.issueFormLink(M.registry, []), 'https://github.com/owner/bg-db-data-2/issues/new?template=submit-match.yml&title=Matches', 'the submission form of the current repository');
 
     // one repository down: a notice, the others are still read
     const down = await cat.loadAll({ base: ut, fetchImpl: (u, i) => (String(u).startsWith(u1) ? Promise.resolve(new Response('', { status: 503 })) : fetch(u, i)) });

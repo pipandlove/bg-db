@@ -112,36 +112,16 @@ test('a declared illegal play survives the hand-over (the sidecar keeps the decl
   assert.deepEqual(JSON.parse(files.find((f) => f.name.endsWith('.bgdb.json')).bytes).illegal, [{ game: 6, row: 19, player: 'Simon Lockwood' }]);
 });
 
-test('links to GitHub: the fork, the upload page of the contributor\'s copy, an issue for one small text match, and the reasons when one is not possible', () => {
+test('the submission form on GitHub: one link, its title naming the matches; none without a repository', () => {
   const reg = { repository: 'pipandlove/bg-db', defaultBranch: 'master' };
   const one = cm.prepare([file('xg-text/me-XG_Roller__03-10-2026__2.txt', 'a.txt')], { config, known: new Map() });
-  const text = one[0].res.text;
-  const l = cm.githubLinks(reg, one, text);
-  assert.equal(l.fork, 'https://github.com/pipandlove/bg-db/fork');
-  assert.equal(l.upload, null, 'GitHub refuses uploads into a repository one cannot write to: the upload page is the one of the copy, which needs the login');
-  assert.match(l.uploadWhy, /Type your GitHub name/);
-  const mine = cm.githubLinks(reg, one, text, 'alice-b');
-  assert.equal(mine.upload, 'https://github.com/alice-b/bg-db/upload/master/inbox');
-  assert.equal(mine.uploadWhy, null);
-  for (const bad of ['', '-x', 'x-', 'a--b', 'a/b', 'a b', 'x'.repeat(40), '<img>']) assert.equal(cm.githubLinks(reg, one, text, bad).upload, null, bad);
-  const owner = cm.githubLinks(reg, one, text, 'PipAndLove');
-  assert.equal(owner.upload, null);
-  assert.match(owner.uploadWhy, /pipandlove\/bg-db is yours: GitHub does not let you fork it, and its master branch is protected/);
-  assert.ok(l.issue.startsWith('https://github.com/pipandlove/bg-db/issues/new?template=submit-match.yml&title=Match%3A%20me%20vs%20XG%20Roller%2B%202026-10-03&transcript='));
-  assert.ok(l.issue.length <= cm.MAX_ISSUE_URL);
-  assert.equal(decodeURIComponent(l.issue.split('&transcript=')[1]), text);
-  assert.equal(l.issueWhy, null);
+  assert.equal(cm.issueFormLink(reg, one), 'https://github.com/pipandlove/bg-db/issues/new?template=submit-match.yml&title=Matches%3A%20me%20vs%20XG%20Roller%2B%202026-10-03');
   const two = cm.prepare([file('foxamon/tester_vs_Osprey12_2026-08-10.mat', 'a.mat'), file(LINNET, 'b.txt')], { config, known: new Map() });
-  const lin = cm.prepare([file(LINNET, 'b.txt')], { config, known: new Map() });
-  assert.match(cm.githubLinks(reg, lin, lin[0].res.text).issueWhy, /too long/, 'a 7-point match is too long for an address: the ZIP is the way');
-  assert.match(cm.githubLinks(reg, two, '').issueWhy, /one match at a time/);
-  const withSgf = cm.prepare([file(`${CH}.txt`, 'c.txt'), file(`${CH}.sgf`, 'c.sgf')], { config, known: new Map() });
-  assert.match(cm.githubLinks(reg, withSgf, withSgf[0].res.text).issueWhy, /SGF or XG/);
-  const long = cm.prepare([file('extmatchdb/xg-text-crlf-empty-site_11pt.mat', 'd.mat')], { config, known: new Map() });
-  assert.match(cm.githubLinks(reg, long, long[0].res.text).issueWhy, /too long/);
-  assert.equal(cm.githubLinks({}, one, text), null, 'no repository known: no GitHub links');
-  assert.equal(cm.githubLinks({ repository: 'not a repo' }, one, text), null);
-  assert.equal(cm.githubLinks({ repository: 'a/b', defaultBranch: 'x y;z' }, one, text, 'me').upload, 'https://github.com/me/b/upload/master/inbox', 'an odd branch name is not put into the address');
+  assert.match(decodeURIComponent(cm.issueFormLink(reg, two)), /title=Matches: tester vs Osprey12 and 1 more$/, 'a match file without a date gives none');
+  assert.match(cm.issueFormLink(reg, []), /&title=Matches$/);
+  assert.equal(cm.issueFormLink({}, one), null, 'no repository known: no link');
+  assert.equal(cm.issueFormLink({ repository: 'not a repo' }, one), null);
+  assert.equal(cm.issueFormLink({ repository: 'a/b?x=1' }, one), null, 'nothing odd is put into the address');
 });
 
 test('the catalog rows give the lookup of what is already in the database (16 characters of the hash)', () => {

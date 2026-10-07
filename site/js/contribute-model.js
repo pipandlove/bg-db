@@ -5,9 +5,6 @@
 import { groupFiles, analyzeGroup, normalizeVideoLink, toBgdbJson } from '../lib/core/index.js';
 import { slug } from './dom.js';
 
-/** the hand-over by an issue is only possible while the whole address stays short enough for GitHub */
-export const MAX_ISSUE_URL = 7000;
-
 /**
  * @param {{name:string, bytes:Uint8Array}[]} files
  * @param {{config:object, known?:{get(full:string):string|undefined}}} ctx  known = what is in the database (the catalog)
@@ -89,44 +86,24 @@ export function packageFiles(items, extrasOf, license = 'CC0-1.0') {
   }
   if (files.length) {
     // a note, never read as a match: the instructions, and the rights statement ticked on the page (the review accepts it, decision 0015)
-    files.push({ name: 'CONTRIBUTION.md', bytes: `# Matches for the database\n\nUpload this ZIP as it is, or its files, into the "inbox" folder of your copy (fork) of the database repository on GitHub (Add file > Upload files), and open a pull request to the database repository. The files of one match share the same name. Nothing else is needed: they are checked again, and merged automatically if all is well.\n\n${rightsLine(license)}\n` });
+    files.push({ name: 'CONTRIBUTION.md', bytes: `# Matches for the database\n\nDrop this ZIP, as it is, into the "Submit a match" form of the database on GitHub (the Contribute page opens it for you), tick the rights box and create the issue. A bot checks the matches again, adds them, and answers on the issue with their links. The files of one match share the same name.\n\n${rightsLine(license)}\n` });
   }
   return files;
 }
 
-/** a GitHub account name: letters, digits and single hyphens, at most 39 characters */
-export const isGithubLogin = (s) => typeof s === 'string' && /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(s);
-
 /**
- * Links to GitHub for the hand-over; null when the repository is not known.
- * GitHub lets a person upload files only into a repository they can write to, so a contributor uploads into their own copy (fork) of the
- * repository, at github.com/<login>/<name>, and opens the pull request from there: `fork` makes the copy, `upload` (when the login is known)
- * opens the upload page of the copy. The owner cannot fork their own repository, and its master is protected: `uploadWhy` says so.
- * @returns {{fork:string, upload:string|null, uploadWhy:string|null, issue:string|null, issueWhy:string|null}|null}
+ * The "Submit a match" form of the data repository on GitHub, where the contributor drops the ZIP (decision 0015, tools v8): no fork, no
+ * branch, no pull request to handle. The title names the matches, so that the issue is recognisable in the list. null when the repository is
+ * not known.
+ * @returns {string|null}
  */
-export function githubLinks(registry, items, issueText, login = null) {
+export function issueFormLink(registry, items) {
   const repo = registry?.repository;
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return null;
-  const branch = /^[\w./-]+$/.test(registry.defaultBranch ?? '') ? registry.defaultBranch : 'master';
-  const [owner, name] = repo.split('/');
-  const out = { fork: `https://github.com/${repo}/fork`, upload: null, uploadWhy: null, issue: null, issueWhy: null };
-  if (!isGithubLogin(login)) out.uploadWhy = 'Type your GitHub name to open the upload page of your copy.';
-  else if (login.toLowerCase() === owner.toLowerCase()) out.uploadWhy = `${repo} is yours: GitHub does not let you fork it, and its ${branch} branch is protected. Add the files with git on a branch and open a pull request (docs/data-repositories.md, section 6).`;
-  else out.upload = `https://github.com/${login}/${name}/upload/${branch}/inbox`;
   const fresh = items.filter(sendable);
-  if (fresh.length !== 1) out.issueWhy = 'Sending as an issue works for one match at a time: use the ZIP for several.';
-  else if (fresh[0].res.attachments.length) out.issueWhy = 'This match has an SGF or XG file, which cannot go through an issue: use the ZIP.';
-  else {
-    const s = fresh[0].res.summary;
-    const title = `Match: ${s.players.join(' vs ')}${s.date ? ` ${s.date}` : ''}`;
-    const url = `https://github.com/${repo}/issues/new?template=submit-match.yml&title=${encodeURIComponent(title)}&transcript=${encodeURIComponent(issueText)}`;
-    if (url.length > MAX_ISSUE_URL) out.issueWhy = 'This match is too long to be sent through an address: use the ZIP.';
-    else {
-      out.issue = url;
-      if (fresh[0].res.status === 'partial') out.issueWhy = 'In the issue form, tick "Add it partially": the form cannot tick it for you.';
-    }
-  }
-  return out;
+  const first = fresh[0]?.res.summary;
+  const title = !first ? 'Matches' : `Matches: ${first.players.join(' vs ')}${first.date ? ` ${first.date}` : ''}${fresh.length > 1 ? ` and ${fresh.length - 1} more` : ''}`;
+  return `https://github.com/${repo}/issues/new?template=submit-match.yml&title=${encodeURIComponent(title.slice(0, 120))}`;
 }
 
 /** the data the replay needs to draw the last position of a match */

@@ -15,7 +15,7 @@ Published, the site of `bg-db` reads the data repositories listed in `sources.js
 
 ## What it does
 
-Two pages: the search and replay page (`index.html`) and the **Contribute** page (`contribute.html`, described in [contributing-flow.md](contributing-flow.md)).
+Three pages: the search and replay page (`index.html`), the **Contribute** page (`contribute.html`, described in [contributing-flow.md](contributing-flow.md)), and **How to contribute** (`guide.html`): the same five steps with every picture, to read before starting.
 
 
 - **List** of all matches, newest first (undated last), 50 per page; on the same day by event, then by **round** in natural order (Round 2 before Round 10). Each row: date, both players with the score (the winner in bold), length, games, **event, round** and small tags (on phones the event and round go under the names).
@@ -50,7 +50,8 @@ Not yet: `result:`, `score:`, `pos:` (position search), `opening:`, `collection:
 | `site/js/query.js` | parse, format and apply a query (pure functions, tested in Node) |
 | `site/js/catalog.js` | load the sources, their registries, shards and compressed catalogs and overlays; decode them into rows |
 | `site/js/replay.js`, `replay-model.js`, `board.js`, `svg.js` | the replay: see [replay.md](replay.md) |
-| `site/contribute.html`, `js/contribute.js`, `contribute-model.js`, `zip.js` | the Contribute page: check files in the browser with the core code, hand over as a ZIP or a GitHub link |
+| `site/contribute.html`, `js/contribute.js`, `contribute-model.js`, `zip.js` | the Contribute page: five numbered steps; check files in the browser with the core code, download them as a ZIP, open the "Submit a match" form of the current data repository |
+| `site/guide.html`, `js/guide.js`, `js/steps.js`, `img/guide/*.png` | How to contribute: the steps (one list in `steps.js`, shown by both pages) and the pictures of GitHub, with numbered red marks drawn on top. **To replace a picture:** a plain screenshot of the `sambot1981`-like contributor account (light theme, window about 1280 px, player names blurred), cropped to the useful column; then give its `w`/`h` in `SHOTS` and measure its marks again (`box` = x, y, width, height in the picture's pixels): a test checks the size and that every mark lies inside |
 | `site/js/dom.js` | DOM helpers shared by the pages |
 | `site/js/format.js` | display helpers; the check that a video link has the exact canonical shape before it is shown |
 | `dist/lib/core/*.js` | a copy of `packages/core/src` made by `build`: the browser uses the same code as the tools (here: `normalizeName`; the replay and the browser-side validator will use more) |

@@ -129,7 +129,5 @@ test('Contribute page: a partial match is named but sent only when its box is ti
   const side = files.find((f) => f.name.endsWith('.bgdb.json'));
   assert.deepEqual(JSON.parse(side.bytes), { accept: 'partial' });
   assert.ok(files.some((f) => f.name === `${items[0].base}.txt`));
-  const links = cm.githubLinks({ repository: 'owner/repo' }, items, 'a short transcript');   // a long match goes by ZIP: the address would be too long
-  assert.ok(links.issue);
-  assert.match(links.issueWhy, /tick "Add it partially"/);
+  assert.match(decodeURIComponent(cm.issueFormLink({ repository: 'owner/repo' }, items)), /title=Matches: /, 'an accepted partial match goes by the ZIP like any other');
 });

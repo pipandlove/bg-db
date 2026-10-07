@@ -208,7 +208,7 @@ test('format helpers: video links are only shown in the exact canonical shape', 
 });
 
 test('the site is static and portable: relative URLs only, no inline script or style, every file it names exists, nothing external is loaded', () => {
-  for (const page of ['index.html', 'contribute.html']) for (const m of (() => {
+  for (const page of ['index.html', 'contribute.html', 'guide.html']) for (const m of (() => {
     const html = fs.readFileSync(path.join(dist, page), 'utf8');
     assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(html), `${page}: no inline script`);
     assert.ok(!/<style/i.test(html) && !/\sstyle=/.test(html), `${page}: no inline style`);
@@ -220,12 +220,12 @@ test('the site is static and portable: relative URLs only, no inline script or s
     assert.ok(fs.existsSync(path.join(dist, u.split('#')[0])), `missing file: ${u}`);
   }
   const SKIP = new Set(fs.readdirSync(path.join(dist, 'js')).filter((f) => f.endsWith('.js')));
-  for (const f of ['app.js', 'catalog.js', 'format.js', 'query.js', 'replay.js', 'replay-model.js', 'board.js', 'svg.js', 'dom.js', 'zip.js', 'contribute.js', 'contribute-model.js']) assert.ok(SKIP.has(f), `${f} ships`);
+  for (const f of ['app.js', 'catalog.js', 'format.js', 'query.js', 'replay.js', 'replay-model.js', 'board.js', 'svg.js', 'dom.js', 'zip.js', 'contribute.js', 'contribute-model.js', 'steps.js', 'guide.js']) assert.ok(SKIP.has(f), `${f} ships`);
   for (const f of SKIP) {
     const raw = fs.readFileSync(path.join(dist, 'js', f), 'utf8');
     const src = raw.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');          // comments may mention what the code avoids
     assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(src), `${f} must not inject HTML or evaluate strings`);
-    assert.ok(!/fetch\(\s*['"`]\//.test(src) && !/https?:\/\/(?!www\.youtube\.com|creativecommons\.org|www\.w3\.org\/2000\/svg|github\.com\/\$\{(?:repo|login)\}|youtu\.be\/…)/.test(src), `${f} has an absolute URL (only the SVG namespace identifier and the link targets YouTube, Creative Commons, the project's GitHub repository and the contributor's copy of it are allowed; a placeholder text may show a youtu.be address)`);
+    assert.ok(!/fetch\(\s*['"`]\//.test(src) && !/https?:\/\/(?!www\.youtube\.com|creativecommons\.org|www\.w3\.org\/2000\/svg|github\.com\/\$\{repo\}|github\.com\/signup|youtu\.be\/…)/.test(src), `${f} has an absolute URL (only the SVG namespace identifier and the link targets YouTube, Creative Commons, the database's GitHub repository and GitHub's sign-up page are allowed; a placeholder text may show a youtu.be address)`);
     for (const m of src.matchAll(/from '(\.[^']+)'/g)) assert.ok(fs.existsSync(path.resolve(path.join(dist, 'js'), m[1])), `${f} imports a missing module ${m[1]}`);
   }
   assert.ok(fs.existsSync(path.join(dist, 'lib/core/names.js')));
@@ -241,4 +241,21 @@ test('the built site is served correctly over HTTP (what GitHub Pages would do)'
   }
   assert.equal((await fetch(`${base}nothing-here`)).status, 404);
   assert.equal((await fetch(`${base}..%2f..%2fetc%2fpasswd`)).status === 200, false);
+});
+
+test('how to contribute: every step and every picture exists, each picture has the size its marks were measured on, and every mark lies inside it', async () => {
+  const { STEPS, SHOTS } = await import(pathToFileURL(path.join(dist, 'js', 'steps.js')).href);
+  assert.deepEqual(STEPS.map((s) => s.id), ['check', 'zip', 'form', 'send', 'wait'], 'the Contribute page puts its check and buttons into these steps');
+  for (const st of STEPS) for (const n of st.shots) assert.ok(SHOTS[n], `${st.id}: picture ${n}`);
+  for (const [name, s] of Object.entries(SHOTS)) {
+    const png = fs.readFileSync(path.join(dist, s.src));
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [s.w, s.h], `${s.src}: a new screenshot must come with its size, and its marks measured again`);
+    assert.ok(s.alt.length > 40, `${name}: a description for those who cannot see the picture`);
+    for (const m of s.marks) {
+      const [x, y, w, h] = m.box;
+      assert.ok(x >= 0 && y >= 0 && x + w <= s.w && y + h <= s.h, `${name}: mark "${m.text}" lies outside the picture`);
+    }
+  }
+  const html = fs.readFileSync(path.join(dist, 'guide.html'), 'utf8');
+  assert.match(html, /<noscript>[\s\S]*Contribute page[\s\S]*Create[\s\S]*<\/noscript>/, 'without JavaScript, the steps in one paragraph');
 });
