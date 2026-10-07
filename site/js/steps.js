@@ -71,7 +71,7 @@ export const STEPS = [
     id: 'form', title: 'Open the submission form',
     text: [
       P('Press "Open the submission form": GitHub opens the form of the database in a new tab.'),
-      P('If GitHub asks you to sign in, sign in with your GitHub account, then press the button again. No account yet? ', { href: 'https://github.com/signup', text: 'Create one on github.com/signup' }, ' (see "Before you start" above).'),
+      P('If GitHub asks you to sign in, sign in with your GitHub account, then press the button again. No account yet? ', { href: 'https://github.com/signup', text: 'Create one on github.com/signup' }, ' (step 0 above).'),
     ],
     shots: ['form'],
   },
@@ -94,14 +94,12 @@ export const STEPS = [
   },
 ];
 
-/** shown above the steps by both pages: the one thing to have before starting */
+/** step 0, shown above the steps by both pages: the one thing to have before starting */
 export function accountNotice() {
-  return h('section', { class: 'account', 'aria-labelledby': 'account-title' },
-    h('h3', { id: 'account-title', text: 'Before you start: you need a GitHub account' }),
-    stepText([
-      P('The matches are sent through GitHub, where the database lives. A GitHub account is free and takes two minutes to create.'),
-      P({ href: 'https://github.com/signup', text: 'Create a GitHub account', button: true }, ' ', { text: 'Then come back to this page. Already have one? You are ready: GitHub will ask you to sign in at step 3 if needed.', muted: true }),
-    ]));
+  return h('section', { class: 'step step-account', id: 'step-account', 'aria-labelledby': 'step-account-title' },
+    h('h3', { id: 'step-account-title' }, h('span', { class: 'step-n', 'aria-hidden': 'true', text: '0' }), h('span', { class: 'visually-hidden', text: 'Step 0: ' }), 'Before you can submit a match: a GitHub account'),
+    h('p', { class: 'actions' }, h('a', { class: 'button primary big', href: 'https://github.com/signup', target: '_blank', rel: 'noopener noreferrer', text: 'Create a GitHub account' })),
+    h('p', { class: 'muted', text: 'The database lives on GitHub, and your matches are sent there (steps 3 and 4), in your name. An account is free and takes two minutes; then come back to this page. Already have one? Skip this step: GitHub asks you to sign in at step 3 if needed.' }));
 }
 
 const RED = '#cf222e';
@@ -142,8 +140,7 @@ function arrowHead(x1, y1, x2, y2) {
 /** the paragraphs of a step */
 export function stepText(paragraphs) {
   return paragraphs.map(({ p }) => h('p', {}, p.map((x) => (typeof x === 'string' ? x : x.code ? h('code', { text: x.code })
-    : x.muted ? h('span', { class: 'muted', text: x.text })
-    : h('a', { href: x.href, target: '_blank', rel: 'noopener noreferrer', class: x.button ? 'button primary' : null, text: x.text })))));
+    : h('a', { href: x.href, target: '_blank', rel: 'noopener noreferrer', text: x.text })))));
 }
 
 /**

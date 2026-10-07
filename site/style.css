@@ -203,7 +203,4 @@ ol.marks li { counter-increment: mark; display: flex; gap: .5rem; align-items: b
 ol.marks li::before { content: counter(mark); flex: none; display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #cf222e; color: #fff; font-weight: 700; font-size: .85rem; }
 .tip { border-left: 4px solid var(--warn-fg); background: var(--warn-bg); color: var(--warn-fg); padding: .1rem .9rem; border-radius: 0 var(--radius) var(--radius) 0; margin: .75rem 0; }
 p.actions { margin: 1.5rem 0; }
-.account { border: 2px solid var(--warn-fg); background: var(--warn-bg); color: var(--warn-fg); border-radius: var(--radius); padding: .75rem 1.25rem; margin: 1.25rem 0; }
-.account h3 { margin: .25rem 0 .5rem; font-size: 1.2rem; }
-.account a.button { text-decoration: none; display: inline-block; font-weight: 600; margin-right: .5rem; }
-.account .muted { color: inherit; opacity: .85; }
+.step-account .step-n { background: var(--warn-bg); border-color: var(--warn-fg); color: var(--warn-fg); }
