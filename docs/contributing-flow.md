@@ -55,7 +55,7 @@ For each data repository: the settings (auto-merge, the branch rule with the che
 (`BGDB_BOT_TOKEN`, and `BGDB_TOOLS_TOKEN` while `bg-db` is private). `npm run new-data-repo` and `npm run publish-data-repo` make the settings and say what they
 could not do; what each one is for, how to check it, and how to make the secrets, step by step: [data-repositories.md](data-repositories.md#3-the-two-secrets).
 Two defaults are right as they are: Settings > Actions > General > "Fork pull request workflows" (a maintainer approves the first run of a first-time contributor,
-which CONTRIBUTING.md says), and "Allow GitHub Actions to create and approve pull requests", which is not needed.
+which CONTRIBUTING.md says), and "Allow GitHub Actions to create and approve pull requests", which stays off: the issue workflow opens its pull requests with `BGDB_BOT_TOKEN`, without which the issue route fails.
 
 The Contribute page takes the repository to fork, the name of the copy's upload page and the issue form from the `current` entry of `sources.json` (`repository`, `defaultBranch`); without
 `sources.json`, from `bgdb.config.json` of the repository it was built from.

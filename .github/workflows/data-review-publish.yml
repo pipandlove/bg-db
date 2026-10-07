@@ -63,11 +63,12 @@ jobs:
           PR=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '.[0].number')
           if [ -z "$PR" ] || [ "$PR" = "null" ]; then echo "no pull request for $HEAD_SHA"; exit 0; fi
           echo "PR=$PR" >> "$GITHUB_ENV"
-          gh pr view "$PR" -R "$REPO" --json body,author,authorAssociation > pr.json
+          # the REST API, which gives the author association (the pr command of gh does not)
+          gh api "repos/$REPO/pulls/$PR" > pr.json
           jq -r '.body // ""' pr.json > pr-body.md
-          jq -r '.author.login' pr.json > author.txt
+          jq -r '.user.login' pr.json > author.txt
           gh pr diff "$PR" -R "$REPO" --name-only > changed.txt
-          case "$(jq -r '.authorAssociation' pr.json)" in FIRST_TIME_CONTRIBUTOR|FIRST_TIMER) echo "WELCOME=--welcome" >> "$GITHUB_ENV";; esac
+          case "$(jq -r '.author_association' pr.json)" in FIRST_TIME_CONTRIBUTOR|FIRST_TIMER) echo "WELCOME=--welcome" >> "$GITHUB_ENV";; esac
       - name: Review
         if: env.PR != ''
         run: |

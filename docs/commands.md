@@ -311,7 +311,7 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bg-db` (`../<name>`); commits there use the git identity of the `bg-db` repository. Both change
 `sources.json` without committing it: review it and commit it in `bg-db`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v1] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v2] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bg-db` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows auto-merge, creates the label `submission`, turns Pages on
@@ -323,7 +323,7 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bg-db-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v1` | the tag of `bg-db` its workflows use (default `v1`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v2` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v2`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |

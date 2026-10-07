@@ -71,5 +71,13 @@ jobs:
           git push --force origin "$BRANCH"
           printf 'Closes #%s\n\n- [x] I have the right to share this match under the CC0 public-domain dedication (confirmed by @%s in the issue form).\n' "$NUMBER" "$AUTHOR" > "$RUNNER_TEMP/pr-body.md"
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" ]; then
-            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" --title "Add the match of issue #$NUMBER" --body-file "$RUNNER_TEMP/pr-body.md"
+            if ! gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" --title "Add the match of issue #$NUMBER" --body-file "$RUNNER_TEMP/pr-body.md"; then
+              # say so on the issue rather than leave "I am opening a pull request" (the usual cause: the secret BGDB_BOT_TOKEN is missing)
+              printf '<!-- bgdb-review -->\nThe match is valid and ready on the branch `%s`, but this repository could not open the pull request by itself. Nothing is lost: a maintainer will open it.\n' "$BRANCH" > "$RUNNER_TEMP/comment.md"
+              ID=$(gh api "repos/$REPO/issues/$NUMBER/comments" --jq '[.[] | select(.body | startswith("<!-- bgdb-review -->"))][0].id // empty')
+              if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
+              else gh issue comment "$NUMBER" --body-file "$RUNNER_TEMP/comment.md"; fi
+              echo "::error::the pull request could not be opened: set the secret BGDB_BOT_TOKEN (docs/data-repositories.md, section 3), then run this workflow again"
+              exit 1
+            fi
           fi

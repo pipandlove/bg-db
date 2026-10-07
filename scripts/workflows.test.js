@@ -98,6 +98,8 @@ test('review-publish: runs after validate in the context of the base repository,
   assert.match(prCheckout, /head_sha/);
   assert.match(t, /gh pr merge "\$PR" -R "\$REPO" --auto --squash/);
   for (const m of t.matchAll(/gh (?:pr|label) [a-z]+ [^\n]*/g)) assert.match(m[0], /-R "\$REPO"/, `the workspace is not a checkout of the repository: ${m[0]}`);
+  assert.ok(!/gh pr view [^\n]*authorAssociation/.test(t), '"gh pr view --json" has no authorAssociation: the REST API is read instead');
+  assert.match(t, /gh api "repos\/\$REPO\/pulls\/\$PR" > pr\.json[\s\S]*jq -r '\.author_association' pr\.json/);
 });
 
 test('ingest: only on the default branch, one run at a time, never cancelled, commits with a bot identity', () => {
@@ -121,6 +123,7 @@ test('issue-to-pr: only for issues labelled "submission", the issue text only th
   assert.match(t, /BRANCH="submission\/issue-\$NUMBER"/);
   assert.match(t, /BGDB_BOT_TOKEN \|\| github\.token/);
   assert.match(t, /confirmed by @%s in the issue form/);
+  assert.match(t, /if ! gh pr create [\s\S]*could not open the pull request by itself[\s\S]*exit 1/, 'a pull request that cannot be opened is said on the issue');
 });
 
 test('pages: bg-db publishes the site with sources.json; a data repository publishes its data/ only', () => {

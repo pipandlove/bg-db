@@ -90,7 +90,8 @@ gh repo view pipandlove/bg-db
 
   If `git push` is refused ("rejected, fetch first"), the history on GitHub differs from yours: stop and sort it out before going on (do not force it).
 
-Then the tag. A tag is a name for one commit: the data repositories use exactly that version of the tools, whatever happens to `master` later.
+Then the tag, if `bg-db` has none on GitHub yet (`git ls-remote --tags origin`). A tag is a name for one commit: the data repositories use exactly that version
+of the tools, whatever happens to `master` later. Use the tag of `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs` (section 7 lists the tags):
 
 ```sh
 git tag v1
@@ -140,7 +141,7 @@ is given access to repositories that exist.
 | Secret | Why | Needed |
 |---|---|---|
 | `BGDB_TOOLS_TOKEN` | the workflows of a data repository fetch the tools from `pipandlove/bg-db`. While `bg-db` is **private**, the token GitHub gives a workflow can only read its own repository, so without this secret every workflow fails at "The tools, at the pinned tag" | while `bg-db` is private |
-| `BGDB_BOT_TOKEN` | a "Submit a match" issue becomes a pull request made by a workflow. GitHub starts no workflow for a pull request made with a workflow's own token, so without this secret those pull requests are not checked (`validate` does not run) until someone closes and reopens them | recommended; contributions by pull request and by the Contribute page work without it |
+| `BGDB_BOT_TOKEN` | a "Submit a match" issue becomes a pull request made by a workflow. Without this secret the workflow has only GitHub's own token, which may not open a pull request ("GitHub Actions is not permitted to create or approve pull requests"), and even when allowed, a pull request it opens starts no check (`validate` does not run) | **for the issue route** ("Send as a GitHub issue" on the Contribute page, the "Submit a match" form); pull requests work without it |
 
 ### 3.1 Make a token (on github.com)
 
@@ -243,8 +244,15 @@ git diff                                       # ten lines: two in each of the f
 git commit -am "Tools v2" && git push
 ```
 
-New data repositories get the tag given by `--tools-ref` (default `v1`; change `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs` when `v2` becomes the usual one).
+New data repositories get the tag given by `--tools-ref`, by default `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`: change it with each new tag.
 Never move an existing tag: the identity of matches must not change by accident (decision 0003).
+
+The tags so far:
+
+| Tag | Date | What changed for data repositories |
+|---|---|---|
+| `v1` | 2026-10-07 | the first release |
+| `v2` | 2026-10-07 | review-publish reads the pull request through the REST API (it failed with "Unknown JSON field: authorAssociation"); issue-to-pr says on the issue when it cannot open the pull request |
 
 ## 8. The next data repository, and the switch
 
@@ -286,6 +294,7 @@ Corrections and enrichments of a match of an archived repository are written in 
 | `git push` refused: "refusing to allow an OAuth App to create or update workflow" | the `workflow` scope: `gh auth refresh -s workflow` |
 | a workflow fails at "The tools, at the pinned tag" | the secret `BGDB_TOOLS_TOKEN` (bg-db private), the tag missing on GitHub, or the token expired |
 | `validate / validate` cannot be chosen in the branch rule | it is listed only after it has run once: open a test pull request first |
+| the `issue-to-pr` workflow fails: "GitHub Actions is not permitted to create or approve pull requests" | the secret `BGDB_BOT_TOKEN` is missing (section 3). The match is already on the branch `submission/issue-<n>`: once the secret is set, run the workflow again (`gh run rerun <run id> -R pipandlove/bg-db-data-1`, or edit the issue), and it opens the pull request |
 | pull requests made from issues have no check | the secret `BGDB_BOT_TOKEN` |
 | GitHub's upload page says "Uploads are disabled" | uploads need write access, so contributors upload into their own copy (fork): the Contribute page leads them there once they type their GitHub name. The owner cannot fork their own repository and `master` is protected: add matches with git (section 6) |
 | warnings about Pages or the branch rule, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
