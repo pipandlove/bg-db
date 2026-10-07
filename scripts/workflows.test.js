@@ -93,9 +93,13 @@ test('review-publish: runs after validate in the context of the base repository,
   assert.match(t, /--config base\/bgdb\.config\.json/);
   assert.ok(!/working-directory: pr\b/.test(t) && !/node pr\//.test(t) && !/bash pr\//.test(t) && !/\.\/pr\//.test(t), 'nothing is run from pr/');
   assert.ok(!/download-artifact/.test(t), 'no artifact of the pull request is trusted');
-  const prCheckout = t.slice(t.indexOf("The pull request's files"), t.indexOf('actions/setup-node'));
-  assert.match(prCheckout, /persist-credentials: false/);
-  assert.match(prCheckout, /head_sha/);
+  assert.ok(!/repository: \$\{\{ github\.event\.workflow_run\.head_repository/.test(t) && !/allow-unsafe-pr-checkout/.test(t), 'the pull request is never checked out (checkout refuses a fork in a workflow_run, rightly)');
+  assert.match(t, /HEAD_REPO: \$\{\{ github\.event\.workflow_run\.head_repository\.full_name \}\}/, 'its name only reaches the shell through an environment variable');
+  const fetch = t.slice(t.indexOf('The files the pull request adds to inbox/'), t.indexOf('- name: Review'));
+  assert.match(fetch, /case "\$F" in inbox\/\*\) ;; \*\) continue ;; esac/, 'only files under inbox/ are fetched');
+  assert.match(fetch, /grep -Fq '\.\.'/, 'no ".." in a fetched name');
+  assert.match(fetch, /\?ref=\$HEAD_SHA" > "pr\/\$F"/, 'at the commit validate checked');
+  assert.match(t, /--inbox pr\/inbox --data base\/data --config base\/bgdb\.config\.json/, 'the data and the configuration come from the default branch');
   assert.match(t, /gh pr merge "\$PR" -R "\$REPO" --squash --match-head-commit "\$HEAD_SHA"/, 'merged only as reviewed: not a commit pushed after the review');
   assert.ok(!/--auto\b/.test(t), 'no auto-merge: it needs a branch rule, which would also refuse the ingest\'s commits');
   assert.match(t, /- name: Merge when the review says it is safe\n\s+if: env\.PR != ''\n\s+env:\n\s+GH_TOKEN: \$\{\{ secrets\.BGDB_BOT_TOKEN \|\| github\.token \}\}/, 'the merge is made with the bot token, so that its push starts the ingest');

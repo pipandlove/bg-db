@@ -3,8 +3,9 @@
 #
 # Why a second workflow: a pull request from a fork gets a read-only token, so it cannot comment. This workflow runs in the context of the
 # base repository (with a write token) after "validate" has run. Safety (spec SC-01): it never trusts anything produced by the pull request.
-# It redoes the review itself, with the tools of bg-db at the pinned tag and the configuration of the default branch, on the pull request's
-# files read as data. Nothing from pr/ is ever executed.
+# It redoes the review itself, with the tools of bg-db at the pinned tag and the default branch of the data repository (its data, inbox and
+# configuration), on the files the pull request adds under inbox/, downloaded one by one through the API as data. The pull request is never
+# checked out (actions/checkout refuses a fork's code in a workflow_run, rightly) and nothing from it is ever executed.
 #
 # No branch rule is needed (decision 0024): the merge is decided here, by this review, and the ingest commits to master after it. Settings
 # (new-data-repo sets them): squash merging allowed, branches deleted after merge.
@@ -30,13 +31,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
     steps:
-      - name: The configuration, from the default branch
+      - name: The data repository, from the default branch (data, inbox, configuration)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
         with:
           path: base
-          sparse-checkout: bgdb.config.json
-          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: The tools, at the pinned tag
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
@@ -45,13 +45,6 @@ jobs:
           ref: ${{ inputs.tools-ref }}
           token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
           path: tools
-          persist-credentials: false
-      - name: The pull request's files (data only, never executed)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
-        with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
-          ref: ${{ github.event.workflow_run.head_sha }}
-          path: pr
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
         with:
@@ -70,11 +63,25 @@ jobs:
           jq -r '.user.login' pr.json > author.txt
           gh pr diff "$PR" -R "$REPO" --name-only > changed.txt
           case "$(jq -r '.author_association' pr.json)" in FIRST_TIME_CONTRIBUTOR|FIRST_TIMER) echo "WELCOME=--welcome" >> "$GITHUB_ENV";; esac
+      - name: The files the pull request adds to inbox/ (downloaded as data, at the commit validate checked)
+        if: env.PR != ''
+        run: |
+          mkdir -p pr
+          cp -r base/inbox pr/inbox 2>/dev/null || mkdir -p pr/inbox
+          gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[] | select(.status != "removed") | .filename' > added.txt
+          while IFS= read -r F; do
+            # a name from the pull request is untrusted: only plain names under inbox/ are fetched, and never written elsewhere
+            case "$F" in inbox/*) ;; *) continue ;; esac
+            if ! printf '%s' "$F" | grep -Eq '^inbox/[A-Za-z0-9._ +()-]+(/[A-Za-z0-9._ +()-]+)*$' || printf '%s' "$F" | grep -Fq '..'; then echo "skipped: $F"; continue; fi
+            mkdir -p "pr/$(dirname "$F")"
+            gh api -H "Accept: application/vnd.github.raw" "repos/$HEAD_REPO/contents/$(jq -rn --arg p "$F" '$p | @uri' | sed 's/%2F/\//g')?ref=$HEAD_SHA" > "pr/$F"
+          done < added.txt
+          find pr/inbox -type f | sed 's|^pr/||' | sort
       - name: Review
         if: env.PR != ''
         run: |
           node tools/packages/cli/bin/bgdb.js review \
-            --inbox pr/inbox --data pr/data --config base/bgdb.config.json \
+            --inbox pr/inbox --data base/data --config base/bgdb.config.json \
             --changed changed.txt --body pr-body.md --author "$(cat author.txt)" $WELCOME \
             --report report.json --comment comment.md || true
       - name: Comment (one comment, updated in place)
