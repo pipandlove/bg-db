@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG = {
   name: 'BGDB',
   license: 'CC0-1.0',
   repository: null,                // "owner/name" on GitHub: used by the contribute page to link to the upload page and to the issue form
+  siteUrl: null,                   // the site of the database (bg-db's Pages): the ingest links the matches it added there in its answer to the contributor
   defaultBranch: 'master',
   sealPolicy: { maxMatches: 5000, maxMB: 300, maxAttachmentKB: 2048 },   // 5 000: the open shard, read in full at each build, stays small (decision 0024)
   videoHosts: ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'],

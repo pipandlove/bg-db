@@ -34,13 +34,32 @@ jobs:
       - name: Link the workspace of the tools
         working-directory: tools
         run: npm install --ignore-scripts --no-audit --no-fund
+      # Credit: the author of the merged pull request; for a pull request the issue workflow opened (a branch submission/issue-N of this
+      # repository, which only it and maintainers can make), the author of that issue. The branch name is only matched, never run.
+      - name: Who contributed (the merged pull request, or the issue it came from)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          C="$ACTOR"
+          gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0] // empty' > "$RUNNER_TEMP/pr.json" || true
+          if [ -s "$RUNNER_TEMP/pr.json" ]; then
+            echo "PR=$(jq -r '.number' "$RUNNER_TEMP/pr.json")" >> "$GITHUB_ENV"
+            C=$(jq -r '.user.login' "$RUNNER_TEMP/pr.json")
+            HEAD=$(jq -r '.head.ref' "$RUNNER_TEMP/pr.json")
+            if [ "$(jq -r '.head.repo.full_name' "$RUNNER_TEMP/pr.json")" = "$REPO" ] && [[ "$HEAD" =~ ^submission/issue-([0-9]+)$ ]]; then
+              ISSUE="${BASH_REMATCH[1]}"
+              echo "ISSUE=$ISSUE" >> "$GITHUB_ENV"
+              C=$(gh api "repos/$REPO/issues/$ISSUE" --jq '.user.login')
+            fi
+          fi
+          case "$C" in *[!A-Za-z0-9-]*|'') C="$ACTOR" ;; esac
+          echo "CONTRIBUTOR=$C" >> "$GITHUB_ENV"
       - name: Ingest
-        env:
-          CONTRIBUTOR: ${{ github.event.head_commit.author.username || github.actor }}
-        run: node tools/packages/cli/bin/bgdb.js ingest --contributor "$CONTRIBUTOR" --date "$(date -u +%F)" --report "$RUNNER_TEMP/ingest-report.json"
+        run: node tools/packages/cli/bin/bgdb.js ingest --contributor "$CONTRIBUTOR" --date "$(date -u +%F)" --report "$RUNNER_TEMP/ingest-report.json" --comment "$RUNNER_TEMP/ingest-comment.md"
       - name: Commit
-        env:
-          CONTRIBUTOR: ${{ github.event.head_commit.author.username || github.actor }}
         run: |
           git config user.name "bgdb-bot"
           git config user.email "bgdb-bot@users.noreply.github.com"
@@ -49,6 +68,15 @@ jobs:
             git commit -m "ingest: matches added by $CONTRIBUTOR"
             git push
           fi
+      # the answer to the contributor: on the merged pull request, and on the issue it came from (which the merge closed)
+      - name: Tell the contributor
+        if: env.PR != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -s "$RUNNER_TEMP/ingest-comment.md" ]; then exit 0; fi
+          for N in "$PR" ${ISSUE:-}; do gh api "repos/$REPO/issues/$N/comments" -F body=@"$RUNNER_TEMP/ingest-comment.md" >/dev/null; done
       # decision 0024: one issue, updated at each run, when the repository nears its size limit or matches wait for the next repository
       - name: Size of the repository
         if: always()

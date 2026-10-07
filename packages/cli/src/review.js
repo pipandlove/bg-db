@@ -4,8 +4,9 @@
  * a bot posts. It writes nothing to data/. The same code runs on a pull request (read-only) and on a contributor's machine.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { analyzeGroup, readMatch, writeMat } from '@bg-db/core';
+import { analyzeGroup, readMatch, writeMat, readZip } from '@bg-db/core';
 import { collectGroups } from './ingest.js';
 import { listShards, loadHashIndex } from './store.js';
 import { diffEnrichment, readEnrichment, readLocalMeta, ID_RE } from './enrich.js';
@@ -130,6 +131,15 @@ const NEXT = {
   closed: 'Please send the same files again from the Contribute page of the site: it sends them to the data repository that takes new matches now. Your files are not lost, and you can close this pull request.',
 };
 
+/** one line of the table of the comment: what happens to a match */
+function groupRow(g) {
+  if (g.status === 'new') return `| OK | ${matchLabel(g.summary)} | will be added${g.partial ? ' **partially** (you agreed)' : ''}${g.attachments.length ? ` (with ${g.attachments.join(', ')})` : ''}${g.links ? `, ${g.links} video link${g.links === 1 ? '' : 's'}` : ''} |`;
+  if (g.status === 'partial') return `| Partial | ${matchLabel(g.summary)} | can be added partially: ${g.partial.notes.length} game${g.partial.notes.length === 1 ? '' : 's'} cannot be read; waiting for your agreement |`;
+  if (g.status === 'duplicate' && g.enrich) return `| OK | ${matchLabel(g.summary)} | already in the database as ${md(g.duplicateOf)}; will add ${[...g.enrich.attachments, g.enrich.links ? `${g.enrich.links} video link${g.enrich.links === 1 ? '' : 's'}` : '', g.enrich.tags ? `${g.enrich.tags} tag${g.enrich.tags === 1 ? '' : 's'}` : '', g.enrich.meta?.length ? `the corrected ${g.enrich.meta.join(', ')}` : ''].filter(Boolean).join(', ')} to it |`;
+  if (g.status === 'duplicate') return `| Skipped | ${matchLabel(g.summary)} | already in the database${g.duplicateOf ? ` as ${md(g.duplicateOf)}` : ''}${g.extrasIgnored ? '; what you added to it is already there' : ''} |`;
+  return `| Needs a fix | ${g.files.map(md).join(', ')} | ${md(g.errors[0]?.message ?? 'error')} |`;
+}
+
 /** @returns {string} markdown, at most about 60 000 characters */
 export function renderComment(report, decision, { author = null, welcome = false } = {}) {
   const L = [MARKER];
@@ -139,13 +149,7 @@ export function renderComment(report, decision, { author = null, welcome = false
   if (decision.reasons.length && decision.verdict !== 'ready') L.push(`*Why:* ${decision.reasons.map(md).join('; ')}.`, '');
   if (n > 0) {
     L.push('| | Match | What happens |', '|---|---|---|');
-    for (const g of report.groups.slice(0, 100)) {
-      if (g.status === 'new') L.push(`| OK | ${matchLabel(g.summary)} | will be added${g.partial ? ' **partially** (you agreed)' : ''}${g.attachments.length ? ` (with ${g.attachments.join(', ')})` : ''}${g.links ? `, ${g.links} video link${g.links === 1 ? '' : 's'}` : ''} |`);
-      else if (g.status === 'partial') L.push(`| Partial | ${matchLabel(g.summary)} | can be added partially: ${g.partial.notes.length} game${g.partial.notes.length === 1 ? '' : 's'} cannot be read; waiting for your agreement |`);
-      else if (g.status === 'duplicate' && g.enrich) L.push(`| OK | ${matchLabel(g.summary)} | already in the database as ${md(g.duplicateOf)}; will add ${[...g.enrich.attachments, g.enrich.links ? `${g.enrich.links} video link${g.enrich.links === 1 ? '' : 's'}` : '', g.enrich.tags ? `${g.enrich.tags} tag${g.enrich.tags === 1 ? '' : 's'}` : '', g.enrich.meta?.length ? `the corrected ${g.enrich.meta.join(', ')}` : ''].filter(Boolean).join(', ')} to it |`);
-      else if (g.status === 'duplicate') L.push(`| Skipped | ${matchLabel(g.summary)} | already in the database${g.duplicateOf ? ` as ${md(g.duplicateOf)}` : ''}${g.extrasIgnored ? '; what you added to it is already there' : ''} |`);
-      else L.push(`| Needs a fix | ${g.files.map(md).join(', ')} | ${md(g.errors[0]?.message ?? 'error')} |`);
-    }
+    for (const g of report.groups.slice(0, 100)) L.push(groupRow(g));
     if (n > 100) L.push(`| | and ${n - 100} more | |`);
     const partial = report.groups.filter((g) => g.status === 'partial');
     if (partial.length) {
@@ -178,17 +182,58 @@ export function renderComment(report, decision, { author = null, welcome = false
 
 // ------------------------------------------------------------------ issue form -> inbox file (spec C2, "paste a match")
 
-/** the sections of an issue created from an issue form: "### Label" followed by the answer */
+/** a file dropped into a box of an issue: GitHub stores it and writes its link there (a public repository's files can be read without a login) */
+const ATTACHMENT_RE = /https:\/\/github\.com\/user-attachments\/files\/\d+\/[^\s()<>\[\]"'?#]+/g;
+
+/**
+ * The sections of an issue created from an issue form: "### Label" followed by the answer. The first box ("Your matches", formerly "Match
+ * transcript") holds either the ZIP of the Contribute page, dropped there (its link, in attachments), or the pasted text of one match.
+ */
 export function parseIssueBody(body) {
   const sections = {};
   const parts = String(body ?? '').replace(/\r\n/g, '\n').split(/^### +(.+?) *$/m);
   for (let i = 1; i < parts.length; i += 2) sections[parts[i].trim()] = (parts[i + 1] ?? '').trim();
   const find = (prefix) => Object.entries(sections).find(([k]) => k.toLowerCase().startsWith(prefix))?.[1] ?? '';
-  let transcript = find('match transcript');
+  let transcript = find('your matches') || find('match transcript');
+  const attachments = [...new Set(transcript.match(ATTACHMENT_RE) ?? [])];
   const fence = transcript.match(/^```[^\n]*\n([\s\S]*?)\n```$/);
   if (fence) transcript = fence[1];
   const clean = (v) => (v === '_No response_' ? '' : v);
-  return { transcript: clean(transcript), event: clean(find('event')), rights: rightsDeclared(find('rights') || body), acceptPartial: /-\s*\[[xX]\]\s*Add it partially/i.test(find('partial')) };
+  return {
+    transcript: clean(transcript), attachments, zips: attachments.filter((u) => /\.zip$/i.test(u)),
+    event: clean(find('event')), rights: rightsDeclared(find('rights') || body), acceptPartial: /-\s*\[[xX]\]\s*Add it partially/i.test(find('partial')),
+  };
+}
+
+/** GitHub sends a dropped file from these hosts (github.com redirects to its file storage) */
+const ATTACHMENT_HOSTS = /^(github\.com|[a-z0-9-]+\.githubusercontent\.com)$/;
+
+/**
+ * Download the ZIP dropped into an issue. The link comes from a stranger: only GitHub's own attachment links are followed, over https, to
+ * GitHub's hosts, and the download stops at maxBytes (GitHub takes ZIP files of up to 25 MB in an issue).
+ * @returns {Promise<{bytes?:Uint8Array, error?:string}>}
+ */
+export async function downloadAttachment(url, { fetchFn = globalThis.fetch, maxBytes = 25 * 1024 * 1024 } = {}) {
+  const name = decodeURIComponent(url.split('/').pop());
+  if (!(url.match(ATTACHMENT_RE)?.[0] === url)) return { error: `${name} is not a file attached to this issue` };
+  let res;
+  try { res = await fetchFn(url, { redirect: 'follow' }); } catch (e) { return { error: `${name} could not be downloaded (${e.message})` }; }
+  let host = '';
+  try { const u = new URL(res.url || url); host = u.protocol === 'https:' ? u.hostname : ''; } catch { /* host stays empty */ }
+  if (!ATTACHMENT_HOSTS.test(host)) return { error: `${name} could not be downloaded (it was sent from somewhere else than GitHub)` };
+  if (!res.ok) return { error: `${name} could not be downloaded (HTTP ${res.status})` };
+  if (Number(res.headers?.get?.('content-length') ?? 0) > maxBytes) return { error: `${name} is larger than ${maxBytes / 1024 / 1024} MB` };
+  const chunks = [];
+  let size = 0;
+  for await (const c of res.body) {
+    size += c.length;
+    if (size > maxBytes) return { error: `${name} is larger than ${maxBytes / 1024 / 1024} MB` };
+    chunks.push(c);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) { bytes.set(c, at); at += c.length; }
+  return { bytes };
 }
 
 const tagValue = (s) => s.replace(/["\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
@@ -197,15 +242,16 @@ const tagValue = (s) => s.replace(/["\r\n]/g, ' ').replace(/\s+/g, ' ').trim().s
  * Turn an issue into the file of a pull request. Nothing is written when the match is not valid.
  * @returns {{ok:boolean, file?:string, errors:object[], comment:string}}
  */
-export function issueToInbox({ body, number, inbox, config }) {
+export function issueToInbox({ body, number, inbox, config, data = 'data', zip = null }) {
   if (config.closed) {
     return { ok: false, closed: true, errors: [{ code: 'V-CLOSED', message: 'This data repository is closed: it takes no more matches.' }],
       comment: `${MARKER}\nThanks for the submission. This collection is closed: it takes no more matches. Please send it again from the Contribute page of the site, which sends it to the data repository that takes new matches now. You can close this issue.` };
   }
   const p = parseIssueBody(body);
+  if (p.attachments.length) return zipToInbox({ p, number, inbox, config, data, zip });
   const errors = [];
   if (!p.rights) errors.push({ code: 'V-RIGHTS', message: 'The rights box of the form is not ticked.', hint: 'Edit the issue and tick "I have the right to share this".' });
-  if (!p.transcript) errors.push({ code: 'V-FORMAT', message: 'The match transcript is empty.', hint: 'Paste the text of the match into the first box.' });
+  if (!p.transcript) errors.push({ code: 'V-FORMAT', message: 'The match transcript is empty.', hint: 'Drop the ZIP of the Contribute page into the first box, or paste the text of the match there.' });
   let text = p.transcript;
   let partial = null;
   if (errors.length === 0) {
@@ -236,4 +282,49 @@ export function issueToInbox({ body, number, inbox, config }) {
   fs.writeFileSync(file, `${text.replace(/\r\n/g, '\n').trimEnd()}\n`);
   if (partial) fs.writeFileSync(path.join(inbox, `issue-${number}.bgdb.json`), `${JSON.stringify({ accept: 'partial' }, null, 2)}\n`);
   return { ok: true, file, errors: [], ...(partial ? { partial: true } : {}), comment: `${MARKER}\nThanks! The match is valid${partial ? ' and you agreed to add it partially' : ''}. I am opening a pull request with it; it is checked again there and merged automatically if everything is fine.` };
+}
+
+const FIX_ZIP = 'Fix it on the Contribute page of the site and download the ZIP again. Then edit this issue: delete the line of the old ZIP from the first box, drop the new ZIP there, and save. I will check it again.';
+
+/**
+ * The ZIP of the Contribute page, dropped into the issue (downloaded by the caller: zip = {bytes} or {error}). It is checked here as the
+ * pull request will check it, so that the contributor reads the answer where they are: the issue. Only a contribution that can be merged
+ * (or that a maintainer must look at) becomes inbox/issue-N.zip and a pull request; the rights come from the box of the form or from the
+ * statement the page wrote into the ZIP.
+ */
+function zipToInbox({ p, number, inbox, config, data, zip }) {
+  const no = (errors, text) => ({ ok: false, errors, comment: `${MARKER}\n${text}` });
+  if (p.zips.length === 0) return no([{ code: 'V-FORMAT', message: 'The file dropped into the form is not a ZIP.' }], `Thanks for the submission. The file dropped into the form is not the ZIP of the Contribute page. Check your matches on the Contribute page of the site, download its ZIP, then edit this issue: delete the line of the file from the first box, drop the ZIP there, and save.`);
+  if (p.zips.length > 1) return no([{ code: 'V-FORMAT', message: 'More than one ZIP is dropped into the form.' }], 'Thanks for the submission. I found more than one ZIP in the first box, and I take only one: edit this issue, delete the lines of all but the last ZIP from the first box, and save. (The Contribute page puts all your matches into one ZIP.)');
+  if (!zip?.bytes) return no([{ code: 'V-FORMAT', message: zip?.error ?? 'The ZIP could not be downloaded.' }], `Thanks for the submission. ${md(zip?.error ?? 'The ZIP could not be downloaded')}. Edit the issue (any change) and I will try again; if it keeps failing, a maintainer will look at it.`);
+  const z = readZip(zip.bytes);
+  if (!z.ok) return no([{ code: 'V-FORMAT', message: `The ZIP cannot be read: ${z.error}.` }], `Thanks for the submission. The ZIP cannot be read: ${md(z.error)}. ${FIX_ZIP}`);
+  // the same review as the pull request's, on a copy of the inbox that holds only this ZIP
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-issue-'));
+  let report;
+  try {
+    fs.writeFileSync(path.join(tmp, `issue-${number}.zip`), zip.bytes);
+    report = reviewInbox({ inbox: tmp, data, config });
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  const rights = p.rights || report.rights;
+  const decision = classify(report, { closed: config.closed });
+  const table = report.summary.groups ? ['', '| | Match | What happens |', '|---|---|---|', ...report.groups.slice(0, 100).map(groupRow), ...(report.groups.length > 100 ? [`| | and ${report.groups.length - 100} more | |`] : [])] : [];
+  const n = report.summary.groups;
+  const head = `Thanks for the submission! I checked the ${n} match${n === 1 ? '' : 'es'} of your ZIP.`;
+  const errors = report.groups.flatMap((g) => g.errors);
+  if (!rights) return no([{ code: 'V-RIGHTS', message: 'The rights box of the form is not ticked.' }], [head, ...table, '', 'One thing is missing: the rights box. Edit the issue, tick "I have the right to share this", and save.'].join('\n'));
+  if (decision.verdict === 'empty') return no([{ code: 'V-FORMAT', message: 'The ZIP holds no match file.' }], `Thanks for the submission. The ZIP holds no match file. ${FIX_ZIP}`);
+  if (decision.verdict === 'needs-fix') {
+    const details = report.groups.filter((g) => g.errors.length).slice(0, 20).map((g) => `- **${g.files.map((f) => md(f.replace(/^[^/]*\.zip\//, ''))).join(', ')}**: ${g.errors.slice(0, 3).map(diagLine).join('; ')}`);
+    return no(errors.length ? errors : [{ code: 'V-FORMAT', message: decision.reasons.join('; ') }], [head, ...table, '', ...(details.length ? ['**What to fix**', '', ...details, ''] : [`*Why:* ${decision.reasons.map(md).join('; ')}.`, '']), FIX_ZIP].join('\n'));
+  }
+  if (decision.verdict === 'needs-confirmation') return no([{ code: 'V-PARTIAL', message: 'A match can only be added partially.' }], [head, ...table, '', 'Some games cannot be read, but the rest of the match is clear: it can be added **partially**. On the Contribute page, tick "Add it partially" next to that match, download the ZIP again, then edit this issue: delete the line of the old ZIP from the first box, drop the new ZIP there, and save. Or fix the file, and the whole match will be added.'].join('\n'));
+  if (decision.verdict === 'duplicate') return no([{ code: 'V-DUPLICATE', message: 'Everything is already in the database.' }], [head, ...table, '', 'Everything in it is already in the database, so there is nothing to add. Thank you all the same! You can close this issue.'].join('\n'));
+  fs.mkdirSync(inbox, { recursive: true });
+  const file = path.join(inbox, `issue-${number}.zip`);
+  fs.writeFileSync(file, zip.bytes);
+  const next = decision.verdict === 'ready'
+    ? 'Everything looks good. I am opening a pull request with it: it is checked once more there and merged automatically, then the matches are added to the database. **You do not need to do anything:** I will write here again with the links to your matches, in about five minutes.'
+    : `It is valid, but a maintainer should have a look first (${decision.reasons.map(md).join('; ')}). I am opening a pull request with it; you do not need to do anything.`;
+  return { ok: true, file, errors: [], verdict: decision.verdict, comment: [`${MARKER}`, head, ...table, '', next].join('\n') };
 }

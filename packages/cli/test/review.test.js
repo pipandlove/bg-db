@@ -190,7 +190,7 @@ test('issue form body: the transcript, the optional event and the rights box are
   const none = parseIssueBody(FORM(text));
   assert.equal(none.event, '');
   assert.equal(parseIssueBody(FORM(text, undefined, '- [ ] I have the right to share this under the CC0 public-domain dedication.')).rights, false);
-  assert.deepEqual(parseIssueBody(''), { transcript: '', event: '', rights: false, acceptPartial: false });
+  assert.deepEqual(parseIssueBody(''), { transcript: '', attachments: [], zips: [], event: '', rights: false, acceptPartial: false });
 });
 
 test('issue -> inbox: a valid match is written as issue-N.txt (with the event as a header when the file has none); nothing is written otherwise', () => {

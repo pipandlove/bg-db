@@ -196,10 +196,10 @@ export function ingest(o) {
       }
       if (enrichment && !enrichment.nothing) {
         report.enriched++;
-        push({ file: primaryPath, files, status: 'enriched', id: res.duplicateOf, added: enrichment.added, skipped: enrichment.skipped, warnings: res.warnings });
+        push({ file: primaryPath, files, status: 'enriched', id: res.duplicateOf, summary: res.summary ?? null, added: enrichment.added, skipped: enrichment.skipped, warnings: res.warnings });
       } else {
         report.duplicates++;
-        push({ file: primaryPath, files, status: 'duplicate', of: res.duplicateOf, extrasIgnored: false, skipped: enrichment?.skipped ?? [] });
+        push({ file: primaryPath, files, status: 'duplicate', of: res.duplicateOf, summary: res.summary ?? null, extrasIgnored: false, skipped: enrichment?.skipped ?? [] });
       }
       if (!o.dryRun) for (const f of files) fs.rmSync(f);
       continue;
@@ -263,7 +263,7 @@ export function ingest(o) {
     byPrefix.set(hash, full);
     report.added++;
     push({
-      file: primaryPath, files, status: 'added', id, ...(res.partial ? { partial: true } : {}),
+      file: primaryPath, files, status: 'added', id, summary: res.summary ?? null, ...(res.partial ? { partial: true } : {}),
       warnings: [...res.warnings, ...res.infos.map((i) => ({ ...i, severity: 'info' }))], attachments: attMeta.map((a) => a.kind), links: res.links.length,
     });
   }
@@ -283,4 +283,27 @@ function removeEmptyFolders(dir) {
     removeEmptyFolders(p);
     if (fs.readdirSync(p).length === 0) fs.rmdirSync(p);
   }
+}
+
+/**
+ * The answer to the contributor once the ingest has run (posted on the merged pull request, and on the issue it came from): what was added,
+ * with links to the matches on the site (config.siteUrl), and what could not be. Markdown; text from files is escaped.
+ */
+export function ingestComment(report, { siteUrl = null } = {}) {
+  const esc = (x) => String(x ?? '').replace(/[\\`*_{}\[\]<>|#~]/g, '\\$&').replace(/@/g, '@\u200b').replace(/\s+/g, ' ').trim();
+  const label = (r) => (r.summary ? `${r.summary.players.map((p) => esc(p ?? '?')).join(' vs ')}${r.summary.matchLength ? `, ${r.summary.matchLength} pts` : ''}` : esc(path.basename(r.file)));
+  const link = (id) => (siteUrl ? `[${id}](${siteUrl.replace(/\/?$/, '/')}#m=${encodeURIComponent(id)})` : `\`${id}\``);
+  const L = [];
+  const added = report.results.filter((r) => r.status === 'added');
+  const enriched = report.results.filter((r) => r.status === 'enriched');
+  const dup = report.results.filter((r) => r.status === 'duplicate' || r.status === 'superseded');
+  const left = report.results.filter((r) => r.status === 'error' || r.status === 'partial' || r.status === 'waiting');
+  if (added.length || enriched.length) L.push(`Done: ${added.length ? `${added.length} match${added.length === 1 ? ' is' : 'es are'} now in the database` : ''}${added.length && enriched.length ? ', and ' : ''}${enriched.length ? `${enriched.length} existing match${enriched.length === 1 ? ' was' : 'es were'} completed` : ''}. Thank you!`, '');
+  else L.push('The ingest has run, but nothing new was added.', '');
+  for (const r of added.slice(0, 100)) L.push(`- ${label(r)}: ${link(r.id)}`);
+  for (const r of enriched.slice(0, 100)) L.push(`- ${label(r)}: ${link(r.id)} (completed)`);
+  for (const r of dup.slice(0, 20)) L.push(`- ${label(r)}: already in the database${r.of ? ` (${link(r.of)})` : ''}`);
+  for (const r of left.slice(0, 20)) L.push(`- ${label(r)}: not added (${esc(r.reason ?? r.errors?.[0]?.message ?? 'needs a fix')}); a maintainer will look at it`);
+  if (siteUrl && (added.length || enriched.length)) L.push('', 'The site shows them within a few minutes, once it has been published again.');
+  return L.join('\n');
 }

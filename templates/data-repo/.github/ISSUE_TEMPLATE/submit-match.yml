@@ -1,19 +1,23 @@
 name: Submit a match
-description: Paste a match transcript. A bot checks it and opens a pull request.
-title: "Match: "
+description: Drop the ZIP made by the Contribute page of the site. A bot checks it, adds your matches, and answers here.
+title: "Matches"
 labels: ["submission"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Check your matches on the **Contribute page** of the site first and download its ZIP. Then drop the ZIP into the box below, tick the rights box, and create the issue. A bot answers here within a minute or two, and again with the links to your matches once they are in the database.
   - type: textarea
     id: transcript
     attributes:
-      label: Match transcript
-      description: Paste the text of the match (.mat / .txt from OpenGammon, Foxamon, Backgammon Studio, or GNU Backgammon SGF).
+      label: Your matches
+      description: Drag the ZIP from the Contribute page into this box (a line with its name appears; that is normal). Or paste the text of one match (.mat / .txt, or GNU Backgammon SGF).
     validations:
       required: true
   - type: input
     id: event
     attributes:
-      label: Event or site (optional)
+      label: Event or site (optional, for pasted text)
   - type: checkboxes
     id: rights
     attributes:
@@ -25,7 +29,7 @@ body:
     id: partial
     attributes:
       label: Partial match
-      description: If some games of the match cannot be read, the rest can still be added, with those games kept by their result only or left out. You will be shown what would be kept first.
+      description: For pasted text (in the ZIP, the Contribute page asks this itself). If some games of the match cannot be read, the rest can still be added, with those games kept by their result only or left out. You will be shown what would be kept first.
       options:
         - label: Add it partially if some games cannot be read.
           required: false

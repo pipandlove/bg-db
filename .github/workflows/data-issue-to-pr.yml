@@ -1,7 +1,10 @@
 # Reusable (decision 0024): called by the "issue-to-pr" workflow of a data repository.
-# "Paste a match": an issue made with the "Submit a match" form becomes a pull request that adds the match to inbox/.
+# An issue made with the "Submit a match" form becomes a pull request that adds its matches to inbox/: the ZIP of the Contribute page dropped
+# into the form (the way the site shows, with no fork and no branch), or the pasted text of one match.
 # The text of the issue is untrusted data: it is read from an environment variable (never put into a shell command), checked by the tools
-# at the pinned tag with the configuration of the default branch, and written to a file named after the issue number.
+# at the pinned tag with the data and configuration of the default branch, and written to a file named after the issue number. A dropped ZIP
+# is downloaded by the tools, from GitHub's own attachment links only, with a size limit, and read defensively like any ZIP of the inbox.
+# The contributor reads the answers on the issue: this check, then (from the ingest) the links to the matches once they are in.
 #
 # A pull request created with the default token does not start other workflows (GitHub rule), so "validate" would not run on it.
 # Create a fine-grained token with "Contents", "Issues" and "Pull requests" write access on the data repository and store it there as the
@@ -22,7 +25,7 @@ permissions:
   issues: write
 jobs:
   convert:
-    if: contains(github.event.issue.labels.*.name, 'submission')
+    if: contains(github.event.issue.labels.*.name, 'submission') && github.event.issue.state == 'open'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.BGDB_BOT_TOKEN || github.token }}
@@ -54,7 +57,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           printf '%s' "$ISSUE_BODY" > "$RUNNER_TEMP/issue.md"
-          node tools/packages/cli/bin/bgdb.js from-issue --body "$RUNNER_TEMP/issue.md" --number "$NUMBER" --result "$RUNNER_TEMP/result.json" || true
+          node tools/packages/cli/bin/bgdb.js from-issue --body "$RUNNER_TEMP/issue.md" --number "$NUMBER" --data data --result "$RUNNER_TEMP/result.json" || true
       - name: Answer on the issue (one comment, updated in place)
         run: |
           jq -r '.comment' "$RUNNER_TEMP/result.json" > "$RUNNER_TEMP/comment.md"
@@ -66,14 +69,14 @@ jobs:
           if [ "$(jq -r '.ok' "$RUNNER_TEMP/result.json")" != "true" ]; then exit 0; fi
           BRANCH="submission/issue-$NUMBER"
           git checkout -B "$BRANCH"
-          git add "inbox/issue-$NUMBER.txt"
-          git -c user.name="$AUTHOR" -c user.email="${AUTHOR_ID}+${AUTHOR}@users.noreply.github.com" commit -m "Add the match of issue #$NUMBER"
+          git add inbox
+          git -c user.name="$AUTHOR" -c user.email="${AUTHOR_ID}+${AUTHOR}@users.noreply.github.com" commit -m "Add the matches of issue #$NUMBER"
           git push --force origin "$BRANCH"
-          printf 'Closes #%s\n\n- [x] I have the right to share this match under the CC0 public-domain dedication (confirmed by @%s in the issue form).\n' "$NUMBER" "$AUTHOR" > "$RUNNER_TEMP/pr-body.md"
+          printf 'Closes #%s\n\n- [x] I have the right to share these matches under the CC0 public-domain dedication (confirmed by @%s in the issue form).\n' "$NUMBER" "$AUTHOR" > "$RUNNER_TEMP/pr-body.md"
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" ]; then
-            if ! gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" --title "Add the match of issue #$NUMBER" --body-file "$RUNNER_TEMP/pr-body.md"; then
+            if ! gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" --title "Add the matches of issue #$NUMBER" --body-file "$RUNNER_TEMP/pr-body.md"; then
               # say so on the issue rather than leave "I am opening a pull request" (the usual cause: the secret BGDB_BOT_TOKEN is missing)
-              printf '<!-- bgdb-review -->\nThe match is valid and ready on the branch `%s`, but this repository could not open the pull request by itself. Nothing is lost: a maintainer will open it.\n' "$BRANCH" > "$RUNNER_TEMP/comment.md"
+              printf '<!-- bgdb-review -->\nThe matches are valid and ready on the branch `%s`, but this repository could not open the pull request by itself. Nothing is lost: a maintainer will open it.\n' "$BRANCH" > "$RUNNER_TEMP/comment.md"
               ID=$(gh api "repos/$REPO/issues/$NUMBER/comments" --jq '[.[] | select(.body | startswith("<!-- bgdb-review -->"))][0].id // empty')
               if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
               else gh issue comment "$NUMBER" --body-file "$RUNNER_TEMP/comment.md"; fi

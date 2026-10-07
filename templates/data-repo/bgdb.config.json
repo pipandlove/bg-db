@@ -2,6 +2,7 @@
   "name": "%%databaseName%%",
   "license": "CC0-1.0",
   "repository": "%%repository%%",
+  "siteUrl": "%%siteUrl%%",
   "defaultBranch": "master",
   "firstShard": %%firstShard%%,
   "sealPolicy": { "maxMatches": 5000, "maxMB": 300, "maxAttachmentKB": 2048 },

@@ -121,12 +121,18 @@ test('ingest: only on the default branch, one run at a time, never cancelled, co
   assert.match(t, /bgdb\.js ingest --contributor "\$CONTRIBUTOR"/);
   assert.match(t, /git add -A data inbox/);
   assert.match(t, /gh workflow run pages\.yml/);
+  // credit: the issue's author only for a branch submission/issue-N of the repository itself; the branch name is matched by bash, never run
+  assert.match(t, /\[ "\$\(jq -r '\.head\.repo\.full_name' "\$RUNNER_TEMP\/pr\.json"\)" = "\$REPO" \] && \[\[ "\$HEAD" =~ \^submission\/issue-\(\[0-9\]\+\)\$ \]\]/);
+  assert.match(t, /case "\$C" in \*\[!A-Za-z0-9-\]\*\|''\) C="\$ACTOR" ;; esac/, 'only a GitHub login goes into GITHUB_ENV');
+  assert.match(t, /--comment "\$RUNNER_TEMP\/ingest-comment\.md"/);
+  assert.match(t, /- name: Tell the contributor\n\s+if: env\.PR != ''/);
 });
 
 test('issue-to-pr: only for issues labelled "submission", the issue text only through an environment variable, one pull request per issue', () => {
   assert.match(caller('issue-to-pr.yml'), /^on:\n  issues:/m);
   const t = read('data-issue-to-pr.yml');
-  assert.match(t, /if: contains\(github\.event\.issue\.labels\.\*\.name, 'submission'\)/);
+  assert.match(t, /if: contains\(github\.event\.issue\.labels\.\*\.name, 'submission'\) && github\.event\.issue\.state == 'open'/, 'an edit of a closed issue opens no new pull request');
+  assert.match(t, /from-issue --body "\$RUNNER_TEMP\/issue\.md" --number "\$NUMBER" --data data/, 'a dropped ZIP is checked against the data, as the pull request will be');
   assert.match(t, /ISSUE_BODY: \$\{\{ github\.event\.issue\.body \}\}/);
   assert.equal((t.match(/github\.event\.issue\.body/g) ?? []).length, 1, 'the issue body is read in exactly one place');
   assert.match(t, /BRANCH="submission\/issue-\$NUMBER"/);

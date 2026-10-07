@@ -5,10 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readMatchBytes, matchHash16, anonymizeMatchText, writeMat, RANK_TEXT } from '@bg-db/core';
 import { loadConfig } from './store.js';
-import { ingest } from './ingest.js';
+import { ingest, ingestComment } from './ingest.js';
 import { build } from './build.js';
 import { createStaticServer } from './serve.js';
-import { reviewInbox, classify, renderComment, issueToInbox } from './review.js';
+import { reviewInbox, classify, renderComment, issueToInbox, parseIssueBody, downloadAttachment } from './review.js';
 import { enrichByRef } from './enrich.js';
 import { verifyShards, splitShard } from './shards.js';
 import { writeSheet, applySheet } from './meta.js';
@@ -23,7 +23,7 @@ export const COMMANDS = {
   },
   ingest: {
     summary: 'move valid matches from inbox/ into the open shard of data/',
-    usage: 'bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--config file]',
+    usage: 'bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--comment file] [--config file]',
   },
   meta: {
     summary: 'review event, round and date before an ingest: a sheet of what the file names propose and of the matches nothing tells apart; --apply writes it to the sidecars',
@@ -50,8 +50,8 @@ export const COMMANDS = {
     usage: 'bgdb review [--inbox inbox] [--data data] [--changed file] [--body file] [--author name] [--welcome] [--report file] [--comment file] [--config file]',
   },
   'from-issue': {
-    summary: 'turn the text of a "Submit a match" issue into a file of inbox/ (used by the issue workflow)',
-    usage: 'bgdb from-issue --body file --number n [--inbox inbox] [--result file] [--config file]',
+    summary: 'turn a "Submit a match" issue (the ZIP of the Contribute page dropped into it, or a pasted match) into a file of inbox/ (used by the issue workflow)',
+    usage: 'bgdb from-issue --body file --number n [--inbox inbox] [--data data] [--result file] [--config file]',
   },
   anonymize: {
     summary: 'replace site match identifiers in text match files (handles are kept)',
@@ -215,6 +215,7 @@ export async function main(argv, io = { out: (s) => console.log(s), err: (s) => 
     else io.out(`${sizeText}; warning at ${R.warnMB} MB, stop at ${R.stopMB} MB.`);
     if (R.closed) io.out('this data repository is closed: it takes no more contributions.');
     if (opts.report) fs.writeFileSync(opts.report, JSON.stringify({ schema: '1.0', added: rep.added, enriched: rep.enriched, duplicates: rep.duplicates, errors: rep.errors, partial: rep.partial, superseded: rep.superseded, waiting: rep.waiting, sealed: rep.sealed, repo: R }, null, 2) + '\n');
+    if (opts.comment) fs.writeFileSync(opts.comment, `${ingestComment(rep, { siteUrl: config.siteUrl })}\n`);
     return rep.errors || rep.partial ? 1 : 0;                         // matches waiting for the next repository are not a failure: what was added is committed
   }
 
@@ -327,7 +328,11 @@ export async function main(argv, io = { out: (s) => console.log(s), err: (s) => 
   if (cmd === 'from-issue') {
     if (!opts.body || !opts.number) { io.err(`Usage: ${COMMANDS['from-issue'].usage}`); return 2; }
     const config = loadConfig(opts.config ?? 'bgdb.config.json');
-    const r = issueToInbox({ body: fs.readFileSync(opts.body, 'utf8'), number: parseInt(opts.number, 10), inbox: opts.inbox ?? 'inbox', config });
+    const body = fs.readFileSync(opts.body, 'utf8');
+    // the ZIP of the Contribute page, dropped into the form: downloaded here, checked by issueToInbox
+    const { zips } = parseIssueBody(body);
+    const zip = zips.length === 1 && !config.closed ? await downloadAttachment(zips[0], { fetchFn: io.fetch ?? globalThis.fetch }) : null;
+    const r = issueToInbox({ body, number: parseInt(opts.number, 10), inbox: opts.inbox ?? 'inbox', data: opts.data ?? 'data', config, zip });
     if (opts.result) fs.writeFileSync(opts.result, JSON.stringify(r, null, 2) + '\n');
     io.out(r.ok ? `written ${r.file}` : `not used: ${r.errors.map((e) => e.message).join(' ')}`);
     return r.ok ? 0 : 1;

@@ -52,7 +52,7 @@ OK    d2fe694645e0abc1  tester vs Osprey12  3pt  1 games  4-0  (tester_vs_Osprey
 
 ## bgdb ingest
 
-`bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--config file]`
+`bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--comment file] [--config file]`
 
 Moves valid matches from the inbox into the **open shard**: each match is validated, de-duplicated by content, rewritten in the
 normalised `.mat` form (read back to make sure it is identical) and stored with its metadata sidecar. Invalid files stay in the
@@ -94,6 +94,7 @@ are skipped **with a warning** and never block the match.
 | `--max-mb` | from config | size threshold override in MB of files in the shard, attachments included (default `sealPolicy.maxMB`, 300) |
 | `--salvage` | off | for bulk imports of old archives: keep what is clear of a match that fails ([partial-matches](partial-matches.md)). A game whose moves cannot be read is kept by its result when two sources confirm it, and left out otherwise; the winner of the match must stay known. In a money session, unreadable games are left out. Without it, the errors are reported so the file can be fixed |
 | `--report` | none | write a JSON summary: the counts (`added`, `waiting`, ...), the shards sealed, and `repo` (size in MB, limits, `state` ok / warn / stop, `closed`); the ingest workflow reads it |
+| `--comment` | none | write the answer to the contributor as markdown: what was added, with links to the matches on the site (`siteUrl` below), what was already there, what could not be added. The ingest workflow posts it on the merged pull request and on the issue it came from |
 | `--config` | `bgdb.config.json` | licence, name, seal policy (`maxAttachmentKB`, default 2048), allowed video hosts, and the keys of a data repository below |
 
 Reads: `inbox/`, `data/*/matches`, `data/hashes/` (matches of shards that were moved away), the config. Writes: `data/<shard>/shard.json`, `matches/<h2>/<hash>.mat`, `<hash>.meta.json`, and
@@ -108,12 +109,13 @@ thousands of files).
 
 **A duplicate that brings something new** (a video link, tags, an SGF or XG file the match does not have yet, an event, round or date in its `.bgdb.json` that differs) **enriches the existing match** instead of being skipped: an enrichment record is written in `data/enrichments/` (see `bgdb enrich`), the shard is not touched, and the files leave the inbox. A duplicate that brings nothing new is only reported. When a shard is sealed, a digest of its files is recorded in its `shard.json` (see `bgdb build` and `bgdb verify`).
 
-**A data repository among several** ([decision 0024](decisions/0024-data-repositories.md)). Three keys of the configuration:
+**A data repository among several** ([decision 0024](decisions/0024-data-repositories.md)). Four keys of the configuration:
 
 | Key | Default | Meaning |
 |---|---|---|
 | `firstShard` | none | the number of this repository's first shard. Shard numbers are global: without it, a new shard gets the number after every shard this repository knows of (its own, the hash files in `data/hashes/` copied from earlier repositories, `externalShards`). A `firstShard` that would reuse one of those numbers stops the ingest (exit 2) |
 | `repoPolicy` | `{"warnMB": 800, "stopMB": 950}` | the size of the repository, measured at each ingest: the larger of `data/` and the packed git history. Above `warnMB` the ingest says it is time to prepare the next repository (and the workflow opens an issue); above `stopMB`, even during a run, it **adds nothing more**: new matches stay in the inbox (`waiting`) for the next repository |
+| `siteUrl` | none | the site of the database (`https://<owner>.github.io/bg-db/`, written by `new-data-repo`): the answer of `--comment` links each match there (`#m=0001/...`); without it, it gives the identifiers only |
 | `closed` | `false` | `true`: the repository takes no more contributions. The review answers `closed`, the issue form refuses; the ingest still files what was merged into the open shard, but opens no new shard (the matches wait) |
 
 The output ends with the size: `repository: 812.4 MB (data 790.2 MB, git 812.4 MB), above 800 MB: time to prepare the next data repository`. Matches that wait are not an error (exit 0): what was added is committed.
@@ -253,10 +255,13 @@ Exit code 1 for `needs-fix`, `empty` and `closed` (so that the check fails), 0 o
 
 ## bgdb from-issue
 
-`bgdb from-issue --body file --number n [--inbox inbox] [--result file] [--config file]`
+`bgdb from-issue --body file --number n [--inbox inbox] [--data data] [--result file] [--config file]`
 
-Turns the text of an issue made with the "Submit a match" form into the file `inbox/issue-<n>.txt`, if the match is valid and the rights box is ticked; nothing is written otherwise. Used by the issue workflow
-("Paste a match", [contributing-flow.md](contributing-flow.md)). The optional "Event" answer is added as a header only when the match has none. A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
+Turns an issue made with the "Submit a match" form into a file of the inbox, if it can be used and the rights box is ticked; nothing is written otherwise. Used by the issue workflow
+([contributing-flow.md](contributing-flow.md)). **The ZIP of the Contribute page dropped into the form** (the way the site shows): its link is read from the first box, it is downloaded (GitHub's attachment links only, over https, at most 25 MB),
+read like any ZIP of the inbox and reviewed against `--data` as the pull request will be. Only a contribution that can be merged, or that a maintainer must look at, becomes `inbox/issue-<n>.zip`;
+for errors, a match that can only be added partially, or nothing new, the answer says what to do on the Contribute page and the issue is edited with the new ZIP. The rights come from the box of the form or the
+statement in the ZIP. **A pasted match** becomes `inbox/issue-<n>.txt` when it is valid. The optional "Event" answer is added as a header only when the match has none. A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
 comment is the answer to post on the issue. Exit code 1 when the issue cannot be used, 2 for bad usage.
 
 ## bgdb anonymize
@@ -317,7 +322,7 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bg-db` (`../<name>`); commits there use the git identity of the `bg-db` repository. Both change
 `sources.json` without committing it: review it and commit it in `bg-db`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v7] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v8] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bg-db` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
@@ -329,7 +334,7 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bg-db-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v7` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v7`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v8` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v8`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |

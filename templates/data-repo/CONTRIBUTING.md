@@ -4,7 +4,7 @@
 
 The easiest way: open the **Contribute** page of the site, drop your files, and follow the steps it shows (GitHub lets you upload files only into your own copy, a *fork*, of this repository: the page helps you make it the first time). Or:
 
-- **A GitHub issue:** open a "Submit a match" issue here, paste the text of the match, tick the rights box. A bot checks it and opens the pull request.
+- **A GitHub issue** (no fork, no branch): open a "Submit a match" issue here, drop the ZIP of the Contribute page into the first box (or paste the text of one match), tick the rights box, create the issue. A bot checks it and answers there, opens the pull request itself, and answers again with the links to your matches once they are in the database.
 - **A pull request:** put the files in `inbox/` (any file name; the ZIP of the Contribute page can go as it is) and open a pull request. If you also have the GNU Backgammon `.sgf` or the eXtreme Gammon
   `.xg` of the same match, give all the files the **same name** and they are kept together.
 

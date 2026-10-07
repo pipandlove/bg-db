@@ -27,7 +27,7 @@ import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHas
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v7';
+export const DEFAULT_TOOLS_REF = 'v8';
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
 /** run a program; the tests replace it to answer for gh */
@@ -211,6 +211,7 @@ export async function newDataRepo(o) {
     const values = {
       name, repository, toolsRepository, toolsRef, firstShard, firstShardId: shardIdOf(firstShard), databaseName: toolsConfig.name,
       dataUrl: `https://${owner.toLowerCase()}.github.io/${name}/`,
+      siteUrl: `https://${toolsRepository.split('/')[0].toLowerCase()}.github.io/${toolsRepository.split('/')[1]}/`,
     };
     if (!c.local) ghReady(c, toolsRepository, toolsRef);           // before anything is written, so that a missing gh leaves nothing half made
     c.out(`${repository}: a data repository whose first shard is ${values.firstShardId}, with the tools ${toolsRepository}@${toolsRef}${c.dryRun ? ' (dry run: nothing is done)' : ''}`);

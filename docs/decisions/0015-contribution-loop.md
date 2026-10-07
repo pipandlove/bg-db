@@ -20,3 +20,11 @@ and that pull requests from forks cannot harm the project (SC-01). GitHub gives 
 
 **Consequences.** A contribution costs one drop and a few clicks, and a clean one is merged and filed with no human. The cost is that the workflows depend on repository settings and on GitHub behaviour that cannot be tested locally: [contributing-flow.md](../contributing-flow.md)
 gives the settings and a test plan for a scratch repository. People without a GitHub account are not served yet (the optional relay, spec C7).
+
+**Update (2026-10-07, tools v8).** The first real contribution through the upload page showed that it is too hard for a first-time contributor: GitHub lets a person upload only into a repository they can
+write to, so the ZIP went into their own copy (a fork), where GitHub opened the pull request against the copy itself; the contributor merged it there, and nothing reached the database.
+The hand-over from the browser is therefore **the issue form with the ZIP dropped into it**: GitHub stores a file dropped into an issue (a ZIP is accepted, up to 25 MB) and writes its link in the
+form, and the file of a public repository's issue can be downloaded without a login. The issue workflow downloads it (GitHub's attachment links only), checks it as the pull request will, answers on
+the issue, and opens the pull request with `BGDB_BOT_TOKEN`; no fork, no branch, no pull request for the contributor to handle. The contributor is no longer the author of the squash commit, which is
+the maintainer's for every pull request the bot opens: the ingest credits the author of the merged pull request, and for a pull request opened from an issue (a branch `submission/issue-N` of the
+repository itself) the author of that issue. It answers on the pull request and on the issue with the links to the matches (`siteUrl`). Uploading into a fork, and pull requests, stay for people who know git.

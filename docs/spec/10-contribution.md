@@ -93,7 +93,7 @@ The hand-over MUST work without the website holding any secret; secrets are only
 
 <a id="CTB-20"></a>**[CTB-20]** The issue form ([Appendix E](90-appendices.md)) accepts a pasted transcript in any supported text format and optional free-text notes. A bot creates a branch and a pull request containing the file, links it to the issue, and replies with the validation report.
 
-<a id="CTB-21"></a>**[CTB-21]** If the pasted text cannot be parsed, the bot replies in the issue with the first error position and does *not* open a pull request; editing the issue triggers a new attempt.
+<a id="CTB-21"></a>**[CTB-21]** If the pasted text cannot be parsed, the bot replies in the issue with the first error position and does *not* open a pull request; editing the issue triggers a new attempt. *Implemented, and extended (tools v8, [decision 0015](../decisions/0015-contribution-loop.md)): the first box also takes the ZIP of the Contribute page dropped into it; the bot downloads it from GitHub, checks it against the database (errors, duplicates, partial matches) and opens the pull request only when it can be added, then answers on the issue again with the links to the matches after the ingest.*
 
 ### C3 – GitHub web upload
 
