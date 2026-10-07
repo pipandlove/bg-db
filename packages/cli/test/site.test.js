@@ -215,7 +215,7 @@ test('the site is static and portable: relative URLs only, no inline script or s
     return [...html.matchAll(/\s(?:src|href)="([^"]+)"/g)];
   })()) {
     const u = m[1];
-    if (u.startsWith('#')) continue;
+    if (u.startsWith('#') || u === 'https://github.com/signup') continue;      // GitHub's sign-up page: a link to leave, nothing is loaded from it
     assert.ok(!/^([a-z]+:)?\/\//i.test(u) && !u.startsWith('/'), `absolute URL in index.html: ${u}`);
     assert.ok(fs.existsSync(path.join(dist, u.split('#')[0])), `missing file: ${u}`);
   }

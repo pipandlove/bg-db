@@ -71,7 +71,7 @@ export const STEPS = [
     id: 'form', title: 'Open the submission form',
     text: [
       P('Press "Open the submission form": GitHub opens the form of the database in a new tab.'),
-      P('You need a GitHub account (it is free). If GitHub asks you to sign in, sign in, or ', { href: 'https://github.com/signup', text: 'create an account' }, ', then press the button again.'),
+      P('If GitHub asks you to sign in, sign in with your GitHub account, then press the button again. No account yet? ', { href: 'https://github.com/signup', text: 'Create one on github.com/signup' }, ' (see "Before you start" above).'),
     ],
     shots: ['form'],
   },
@@ -93,6 +93,16 @@ export const STEPS = [
     shots: ['reply', 'done', 'site'],
   },
 ];
+
+/** shown above the steps by both pages: the one thing to have before starting */
+export function accountNotice() {
+  return h('section', { class: 'account', 'aria-labelledby': 'account-title' },
+    h('h3', { id: 'account-title', text: 'Before you start: you need a GitHub account' }),
+    stepText([
+      P('The matches are sent through GitHub, where the database lives. A GitHub account is free and takes two minutes to create.'),
+      P({ href: 'https://github.com/signup', text: 'Create a GitHub account', button: true }, ' ', { text: 'Then come back to this page. Already have one? You are ready: GitHub will ask you to sign in at step 3 if needed.', muted: true }),
+    ]));
+}
 
 const RED = '#cf222e';
 const GUTTER = 130;
@@ -132,7 +142,8 @@ function arrowHead(x1, y1, x2, y2) {
 /** the paragraphs of a step */
 export function stepText(paragraphs) {
   return paragraphs.map(({ p }) => h('p', {}, p.map((x) => (typeof x === 'string' ? x : x.code ? h('code', { text: x.code })
-    : h('a', { href: x.href, target: '_blank', rel: 'noopener noreferrer', text: x.text })))));
+    : x.muted ? h('span', { class: 'muted', text: x.text })
+    : h('a', { href: x.href, target: '_blank', rel: 'noopener noreferrer', class: x.button ? 'button primary' : null, text: x.text })))));
 }
 
 /**

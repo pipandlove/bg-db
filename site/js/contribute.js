@@ -7,7 +7,7 @@ import { loadAll } from './catalog.js';
 import { h, download } from './dom.js';
 import { makeZip } from './zip.js';
 import { prepare, parseExtras, packageFiles, issueFormLink, previewReplay, knownFromRows, sendable } from './contribute-model.js';
-import { STEPS, stepSection } from './steps.js';
+import { STEPS, stepSection, accountNotice } from './steps.js';
 import { buildGame } from './replay-model.js';
 import { boardTree } from './board.js';
 import { toDom } from './svg.js';
@@ -192,7 +192,7 @@ function build() {
   main.append(
     h('h2', { text: 'Contribute a match' }),
     h('p', { class: 'lead' }, 'Five steps, a few minutes. Want to see them all first, with pictures? ', h('a', { href: 'guide.html', text: 'How to contribute' }), '.'),
-    ...ui.steps);
+    accountNotice(), ...ui.steps);
   refreshActions();
 }
 
