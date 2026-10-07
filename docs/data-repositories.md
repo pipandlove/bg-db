@@ -114,7 +114,8 @@ What it does, in order (the output prints each step):
 2. Makes `../bg-db-data-1` from `templates/data-repo/`: the five workflows (pinned to `v1`), `bgdb.config.json` (`firstShard: 1`), README, CONTRIBUTING, the issue
    form, `inbox/`. Makes it a git repository with the identity of `bg-db`, and commits it.
 3. Writes `sources.json` in `bg-db`, with `bg-db-data-1` as `current` (it is the first).
-4. On GitHub (not with `--local`): creates `pipandlove/bg-db-data-1` (private; `--public` for public) and pushes, then makes [the settings](#4-the-settings).
+4. On GitHub (not with `--local`): creates `pipandlove/bg-db-data-1` (private; `--public` for public) and pushes, then makes [the settings](#4-the-settings),
+   and publishes the repository once (its `pages` workflow), so that the site finds its `registry.json` before any match is added.
 5. Prints **warnings**: each one is something it could not do, with what to do by hand.
 
 Then, in `bg-db`, commit `sources.json`:
@@ -215,6 +216,17 @@ npm run build && npm run serve                 # the whole site with this reposi
 git add -A data inbox && git commit -m "ingest: ..." && git push
 ```
 
+**Adding a match yourself.** As the owner you cannot use the Contribute page's upload (GitHub does not let you fork your own repository, and `master` is
+protected: "Uploads are disabled"). Use a branch and a pull request, so that the bot checks it like any other:
+
+```sh
+cd ~/repo/bg-db-data-1 && git pull
+git switch -c add-match
+cp ~/matches/my-match.txt inbox/
+git add inbox && git commit -m "Add a match" && git push -u origin add-match
+gh pr create --fill                            # the bot checks it and merges it; then: git switch master && git pull
+```
+
 These scripts run the tools of `../bg-db` (its current version, not the tag): keep `bg-db` up to date, or check out the tag there if you need exactly what
 the workflows run. For a large archive, review it in a working folder as [importing-an-archive.md](importing-an-archive.md) says, then run its final ingest into this repository:
 `npm run bgdb -- ingest --inbox <folder>/inbox --data ~/repo/bg-db-data-1/data --config ~/repo/bg-db-data-1/bgdb.config.json --salvage --contributor pipandlove` (from `bg-db`).
@@ -275,4 +287,7 @@ Corrections and enrichments of a match of an archived repository are written in 
 | a workflow fails at "The tools, at the pinned tag" | the secret `BGDB_TOOLS_TOKEN` (bg-db private), the tag missing on GitHub, or the token expired |
 | `validate / validate` cannot be chosen in the branch rule | it is listed only after it has run once: open a test pull request first |
 | pull requests made from issues have no check | the secret `BGDB_BOT_TOKEN` |
+| GitHub's upload page says "Uploads are disabled" | uploads need write access, so contributors upload into their own copy (fork): the Contribute page leads them there once they type their GitHub name. The owner cannot fork their own repository and `master` is protected: add matches with git (section 6) |
 | warnings about Pages or the branch rule, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
+| the site or the Contribute page: "The database could not be loaded (https://.../bg-db-data-1/registry.json: HTTP 404)" | the data repository was never published: its `pages` workflow runs on a push that changes `data/`, and a new repository has none. Run it once: `gh workflow run pages.yml -R pipandlove/bg-db-data-1` (or Actions > pages > Run workflow); also check that Pages is on (section 4) |
+| a workflow of the data repository failed after 0 s, "a workflow file issue" | it called `bg-db` at a tag that did not exist yet (section 1.4); once the tag is pushed, the next run works |

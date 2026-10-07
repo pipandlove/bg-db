@@ -84,17 +84,30 @@ export function packageFiles(items, extrasOf) {
     }
   }
   if (files.length) {
-    files.push({ name: 'README.txt', bytes: 'Put these files in the "inbox" folder of the database repository and open a pull request (GitHub: Add file > Upload files).\nThe files of one match share the same name. Nothing else is needed: they are checked again, and merged automatically if all is well.\n' });
+    files.push({ name: 'README.txt', bytes: 'Put these files in the "inbox" folder of your copy (fork) of the database repository on GitHub (Add file > Upload files), and open a pull request to the database repository.\nThe files of one match share the same name. Nothing else is needed: they are checked again, and merged automatically if all is well.\n' });
   }
   return files;
 }
 
-/** links to GitHub for the hand-over; null when the repository is not known */
-export function githubLinks(registry, items, issueText) {
+/** a GitHub account name: letters, digits and single hyphens, at most 39 characters */
+export const isGithubLogin = (s) => typeof s === 'string' && /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/.test(s);
+
+/**
+ * Links to GitHub for the hand-over; null when the repository is not known.
+ * GitHub lets a person upload files only into a repository they can write to, so a contributor uploads into their own copy (fork) of the
+ * repository, at github.com/<login>/<name>, and opens the pull request from there: `fork` makes the copy, `upload` (when the login is known)
+ * opens the upload page of the copy. The owner cannot fork their own repository, and its master is protected: `uploadWhy` says so.
+ * @returns {{fork:string, upload:string|null, uploadWhy:string|null, issue:string|null, issueWhy:string|null}|null}
+ */
+export function githubLinks(registry, items, issueText, login = null) {
   const repo = registry?.repository;
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return null;
   const branch = /^[\w./-]+$/.test(registry.defaultBranch ?? '') ? registry.defaultBranch : 'master';
-  const out = { upload: `https://github.com/${repo}/upload/${branch}/inbox`, issue: null, issueWhy: null };
+  const [owner, name] = repo.split('/');
+  const out = { fork: `https://github.com/${repo}/fork`, upload: null, uploadWhy: null, issue: null, issueWhy: null };
+  if (!isGithubLogin(login)) out.uploadWhy = 'Type your GitHub name to open the upload page of your copy.';
+  else if (login.toLowerCase() === owner.toLowerCase()) out.uploadWhy = `${repo} is yours: GitHub does not let you fork it, and its ${branch} branch is protected. Add the files with git on a branch and open a pull request (docs/data-repositories.md, section 6).`;
+  else out.upload = `https://github.com/${login}/${name}/upload/${branch}/inbox`;
   const fresh = items.filter(sendable);
   if (fresh.length !== 1) out.issueWhy = 'Sending as an issue works for one match at a time: use the ZIP for several.';
   else if (fresh[0].res.attachments.length) out.issueWhy = 'This match has an SGF or XG file, which cannot go through an issue: use the ZIP.';

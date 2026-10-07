@@ -126,7 +126,8 @@ function ghReady(c, toolsRepository, toolsRef) {
   if (c.run('gh', ['--version']).status !== 0) throw new Stop(`gh (the GitHub command line) is not installed: see ${GUIDE}, "Before you start". Or add --local to do everything but the GitHub part.`);
   if (c.run('gh', ['auth', 'status']).status !== 0) throw new Stop(`gh is not logged in: run "gh auth login" (see ${GUIDE}, "Before you start")`);
   if (c.run('gh', ['repo', 'view', toolsRepository, '--json', 'name']).status !== 0) throw new Stop(`${toolsRepository} (the tools, named by "repository" in bgdb.config.json) is not on GitHub, or this login cannot see it: put bg-db on GitHub first (${GUIDE}, "Before you start")`);
-  if (c.run('gh', ['api', `repos/${toolsRepository}/git/ref/tags/${toolsRef}`]).status !== 0) c.warnings.push(`there is no tag ${toolsRef} on GitHub in ${toolsRepository}: the workflows of the data repository call ${toolsRepository}@${toolsRef} and fail until it exists. In bg-db: git tag ${toolsRef} && git push origin ${toolsRef}`);
+  c.tagOk = c.run('gh', ['api', `repos/${toolsRepository}/git/ref/tags/${toolsRef}`]).status === 0;
+  if (!c.tagOk) c.warnings.push(`there is no tag ${toolsRef} on GitHub in ${toolsRepository}: the workflows of the data repository call ${toolsRepository}@${toolsRef} and fail until it exists. In bg-db: git tag ${toolsRef} && git push origin ${toolsRef}`);
 }
 
 /**
@@ -155,7 +156,12 @@ async function onGitHub(c, { repository, owner, dir, toolsRepository, toolsRef, 
   const pages = pagesOn ? (c.out('Pages is on already'), true)
     : c.tryGh('turn on Pages (source: GitHub Actions)', ['api', '-X', 'POST', `repos/${repository}/pages`, '-f', 'build_type=workflow'],
       `Settings > Pages > Source: GitHub Actions; a private repository needs a paid plan (${GUIDE}, "The settings")`);
-  if (pages !== false) c.tryGh('publish after each ingest (variable PUBLISH_AFTER_INGEST)', ['variable', 'set', 'PUBLISH_AFTER_INGEST', '--body', 'true', '-R', repository], `gh variable set PUBLISH_AFTER_INGEST --body true -R ${repository}`);
+  if (pages !== false) {
+    c.tryGh('publish after each ingest (variable PUBLISH_AFTER_INGEST)', ['variable', 'set', 'PUBLISH_AFTER_INGEST', '--body', 'true', '-R', repository], `gh variable set PUBLISH_AFTER_INGEST --body true -R ${repository}`);
+    // the pages workflow runs on a push that changes data/, and a new repository has none: without this run the site gets a 404 for its registry
+    if (c.tagOk) c.tryGh('publish it once (the site reads its registry.json)', ['workflow', 'run', 'pages.yml', '-R', repository, '--ref', 'master'], `the data repository > Actions > pages > Run workflow`);
+    else c.warnings.push(`once the tag ${toolsRef} exists, publish ${repository} once (the site reads its registry.json): gh workflow run pages.yml -R ${repository}`);
+  }
   const rule = { required_status_checks: { strict: false, contexts: [REQUIRED_CHECK] }, enforce_admins: false, required_pull_request_reviews: null, restrictions: null };
   c.tryGh(`require the check "${REQUIRED_CHECK}" on master`, ['api', '-X', 'PUT', `repos/${repository}/branches/master/protection`, '--input', '-'],
     `Settings > Branches: a rule for master that requires the status check "${REQUIRED_CHECK}", no required review; a private repository needs a paid plan (${GUIDE}, "The settings")`, JSON.stringify(rule));

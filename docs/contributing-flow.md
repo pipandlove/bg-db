@@ -15,7 +15,7 @@ same match again with such a file corrects a match that is already in the databa
 
 | Way | For | What you do |
 |---|---|---|
-| **The Contribute page** (`contribute.html` on the site) | most people | Drop the files (or paste the text). The page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, with a picture of the last position. Add a YouTube link and tags if you want, tick the rights box, download the ZIP, open the GitHub upload page, drop the files, press "Propose changes". For one small match it can also open a pre-filled issue. |
+| **The Contribute page** (`contribute.html` on the site) | most people | Drop the files (or paste the text). The page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, with a picture of the last position. Add a YouTube link and tags if you want, tick the rights box, download the ZIP and unzip it. GitHub lets a person upload files only into a repository they can write to, so the files go through **your own copy** of the data repository: the first time, "Make your copy (fork)"; then type your GitHub name (remembered by your browser), open the upload page of your copy, drop the files, choose "Create a new branch for this commit and start a pull request", press "Propose changes", check that the pull request goes to the data repository, and press "Create pull request". For one small match it can also open a pre-filled issue, which needs no copy. |
 | **A GitHub issue** ("Submit a match" form of the current data repository) | one match, pasted as text | Paste the text, tick the rights box. A bot checks it and opens the pull request for you. |
 | **A pull request** | people used to git | Add the files to `inbox/` of the current data repository and open a pull request. `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bg-db`) tells you beforehand what the bot will say. |
 
@@ -57,7 +57,7 @@ could not do; what each one is for, how to check it, and how to make the secrets
 Two defaults are right as they are: Settings > Actions > General > "Fork pull request workflows" (a maintainer approves the first run of a first-time contributor,
 which CONTRIBUTING.md says), and "Allow GitHub Actions to create and approve pull requests", which is not needed.
 
-The Contribute page takes the address of the upload page and of the issue form from the `current` entry of `sources.json` (`repository`, `defaultBranch`); without
+The Contribute page takes the repository to fork, the name of the copy's upload page and the issue form from the `current` entry of `sources.json` (`repository`, `defaultBranch`); without
 `sources.json`, from `bgdb.config.json` of the repository it was built from.
 
 ## Not tested yet: the workflows

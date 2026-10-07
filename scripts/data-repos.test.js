@@ -113,6 +113,7 @@ test('new-data-repo on GitHub: create and push, auto-merge, label, Pages, the re
   assert.match(t, /warning: owner\/bg-db is private: add the secret BGDB_TOOLS_TOKEN to owner\/bg-db-data-1/);
   assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bg-db-data-1/);
   assert.match(t, /warning: there is no tag v1 on GitHub in owner\/bg-db: .* git tag v1 && git push origin v1/);
+  assert.ok(!calls.some((c) => c.startsWith('workflow run')), 'Pages refused: nothing to publish');
 
   const p = world();
   p.answers.visibility = 'PUBLIC';
@@ -122,6 +123,7 @@ test('new-data-repo on GitHub: create and push, auto-merge, label, Pages, the re
   assert.match(pc.find((c) => c.startsWith('repo create')), / --public /);
   assert.ok(!/warning/.test(p.text()), 'a public tools repository and the secret already there: nothing to do by hand');
   assert.ok(pc.includes('variable set PUBLISH_AFTER_INGEST --body true -R owner/x'));
+  assert.ok(pc.includes('workflow run pages.yml -R owner/x --ref master'), 'published once, so that the site finds its registry');
   assert.ok(!pc.some((c) => c.includes('permissions/access')), 'public tools: no access setting, no token');
   assert.match(p.read('x', '.github/workflows/ingest.yml'), /data-ingest\.yml@v2\n[\s\S]*tools-ref: v2/);
 });

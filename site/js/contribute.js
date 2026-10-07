@@ -109,13 +109,18 @@ function refreshActions() {
   const c = counts();
   const ok = c.send > 0 && ui.rights.checked;
   ui.zip.disabled = !ok;
-  const links = githubLinks(S.data.registry, S.items, S.items.find(sendable)?.res.text ?? '');
+  const links = githubLinks(S.data.registry, S.items, S.items.find(sendable)?.res.text ?? '', ui.login.value.trim());
   ui.steps.hidden = c.send === 0;
   ui.upload.hidden = !links;
+  ui.github.hidden = !links;
   if (links) {
-    ui.upload.href = links.upload;
-    ui.upload.setAttribute('aria-disabled', ok ? 'false' : 'true');
-    ui.upload.classList.toggle('disabled', !ok);
+    ui.fork.href = links.fork;
+    // the upload page of the contributor's own copy: GitHub refuses uploads into a repository one cannot write to
+    if (links.upload) ui.upload.href = links.upload; else ui.upload.removeAttribute('href');
+    const up = ok && !!links.upload;
+    ui.upload.setAttribute('aria-disabled', up ? 'false' : 'true');
+    ui.upload.classList.toggle('disabled', !up);
+    ui.uploadWhy.textContent = links.uploadWhy ?? '';
     ui.issue.hidden = false;
     if (links.issue) { ui.issue.href = links.issue; ui.issue.removeAttribute('aria-disabled'); ui.issue.classList.toggle('disabled', !ok); ui.issueWhy.textContent = ''; }
     else { ui.issue.removeAttribute('href'); ui.issue.setAttribute('aria-disabled', 'true'); ui.issue.classList.add('disabled'); ui.issueWhy.textContent = links.issueWhy ?? ''; }
@@ -143,7 +148,7 @@ function zipNow() {
   const files = packageFiles(S.items, (base) => S.extras.get(base));
   if (!files.length) return;
   download(new Blob([makeZip(files)], { type: 'application/zip' }), 'matches-for-bgdb.zip');
-  ui.done.textContent = `The ZIP has ${files.length - 1} file${files.length - 1 === 1 ? '' : 's'}. Next: ${ui.upload.hidden ? 'put them in the inbox folder of the repository and open a pull request' : 'open the upload page of the repository and drop them there'}.`;
+  ui.done.textContent = `The ZIP has ${files.length - 1} file${files.length - 1 === 1 ? '' : 's'}. Next: unzip it, then ${ui.upload.hidden ? 'put the files in the inbox folder of your copy of the repository and open a pull request' : 'open the upload page of your copy and drop the files there'}.`;
 }
 
 function build() {
@@ -162,17 +167,27 @@ function build() {
 
   ui.rights = h('input', { type: 'checkbox', id: 'rights', onchange: refreshActions });
   ui.zip = h('button', { type: 'button', class: 'primary', text: 'Download the files (ZIP)', disabled: true, onclick: zipNow });
-  ui.upload = h('a', { class: 'button', target: '_blank', rel: 'noopener noreferrer', text: 'Open the GitHub upload page', hidden: true });
+  ui.upload = h('a', { class: 'button', target: '_blank', rel: 'noopener noreferrer', text: 'Open the upload page of your copy', hidden: true });
+  ui.fork = h('a', { class: 'button', target: '_blank', rel: 'noopener noreferrer', text: 'Make your copy (fork), first time only' });
+  // the GitHub name is remembered in this browser only, for the next visit
+  let saved = '';
+  try { saved = localStorage.getItem('bgdb.githubLogin') ?? ''; } catch { /* storage blocked: the field starts empty */ }
+  ui.login = h('input', { type: 'text', id: 'login', value: saved, autocomplete: 'username', spellcheck: 'false', placeholder: 'your-github-name', size: '20',
+    oninput: () => { try { localStorage.setItem('bgdb.githubLogin', ui.login.value.trim()); } catch { /* not remembered */ } refreshActions(); } });
+  ui.uploadWhy = h('p', { class: 'muted small' });
+  ui.github = h('div', { class: 'actions', hidden: true }, ui.fork, h('label', { for: 'login', text: 'Your GitHub name: ' }), ui.login);
   ui.issue = h('a', { class: 'button', target: '_blank', rel: 'noopener noreferrer', text: 'Send as a GitHub issue (one match)', hidden: true });
   ui.issueWhy = h('p', { class: 'muted small' });
   ui.done = h('p', { role: 'status', 'aria-live': 'polite' });
   ui.steps = h('ol', { class: 'steps' },
-    h('li', {}, 'Tick the box, then download the files.'), h('li', {}, 'Open the upload page, drop the files in, and press "Propose changes". GitHub opens the pull request for you.'),
+    h('li', {}, 'Tick the box, then download the files (ZIP) and unzip them.'),
+    h('li', {}, 'GitHub lets you upload only into your own copy of the database: the first time, make it with "Make your copy (fork)", then type your GitHub name.'),
+    h('li', {}, 'Open the upload page of your copy, drop the files in, choose "Create a new branch for this commit and start a pull request", and press "Propose changes". On the next page, check that the pull request goes to the database repository and press "Create pull request".'),
     h('li', {}, 'A bot checks it again within minutes and merges it automatically if everything is fine.'));
   ui.send = h('section', { class: 'card send', hidden: true, 'aria-label': 'Send' },
     h('h3', { text: 'Send them' }),
     h('p', {}, ui.rights, ' ', h('label', { for: 'rights', text: `I have the right to share these matches under the ${S.data.registry.license === 'CC0-1.0' ? 'CC0 public-domain dedication' : `licence of the database (${S.data.registry.license})`}.` })),
-    ui.steps, h('div', { class: 'actions' }, ui.zip, ui.upload, ui.issue), ui.issueWhy, ui.done);
+    ui.steps, h('div', { class: 'actions' }, ui.zip), ui.github, h('div', { class: 'actions' }, ui.upload, ui.issue), ui.uploadWhy, ui.issueWhy, ui.done);
 
   main.append(
     h('h2', { text: 'Contribute a match' }),
