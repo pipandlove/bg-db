@@ -1,0 +1,19 @@
+# "Submit a match" issues become pull requests. Set the secret BGDB_BOT_TOKEN so that "validate" runs on them (docs/contributing-flow.md in bg-db).
+name: issue-to-pr
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+concurrency:
+  group: issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+jobs:
+  convert:
+    uses: %%toolsRepository%%/.github/workflows/data-issue-to-pr.yml@%%toolsRef%%
+    with:
+      tools-repository: %%toolsRepository%%
+      tools-ref: %%toolsRef%%
+    secrets: inherit

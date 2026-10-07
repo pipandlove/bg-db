@@ -1,0 +1,824 @@
+% =============================================================================
+% BGDB - Open Backgammon Game Database - Functional Specification, Part I
+% Build:  pdflatex bgdb-specification.tex
+%         makeindex bgdb-specification.idx
+%         pdflatex bgdb-specification.tex
+%         pdflatex bgdb-specification.tex
+% =============================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{makeidx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!60!black,citecolor=blue!50!black]{hyperref}
+
+\makeindex
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small BGDB Functional Specification -- Part I}
+\fancyhead[R]{\small Draft 0.1}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  backgroundcolor=\color{black!3},
+  rulecolor=\color{black!25},
+  xleftmargin=2pt, xrightmargin=2pt
+}
+
+% ---- Helper macros ----------------------------------------------------------
+% \kw{term}: emphasise a technical term and add it to the index
+\newcommand{\kw}[1]{\textit{#1}\index{#1}}
+% \req{ID}{text}: a numbered, linkable requirement
+\newcommand{\req}[2]{\par\smallskip\noindent\hypertarget{#1}{}\textbf{[#1]}\ #2\par}
+\newcommand{\rref}[1]{\hyperlink{#1}{[#1]}}
+% \src{url}{label}: external source link (used mostly in the glossary)
+\newcommand{\src}[2]{\href{#1}{#2}}
+% \gentry{term}{definition}{sources}
+\newcommand{\gentry}[3]{\item[#1] #2\par{\footnotesize\textit{Sources:} #3}\index{#1}}
+
+\title{\textbf{BGDB}\\[2pt]\large An Open, Federated, Static Backgammon Game Database\\[4pt]
+\Large Functional Specification -- Part I\\[2pt]\normalsize (data model, storage, indexing, client caching, contribution workflow)}
+\author{Working draft -- \texttt{BGDB} is a placeholder name}
+\date{Draft 0.1 -- October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+BGDB is a community-curated, open collection of backgammon matches that can be downloaded, searched and replayed in a web browser, hosted entirely as static files (for instance on GitHub Pages) and grown through pull requests. This document specifies Part I of the system: the logical data model, its decoupled storage binding, the sharding strategy, the indexes, the client-side caching, and a contribution workflow designed so that adding a match feels easy for everybody. The replay interface is deliberately left to Part II (Section~\ref{sec:replay}). The document is a living draft: every structure that is expected to evolve carries an explicit version and an extension mechanism.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% =============================================================================
+\section{Introduction}
+% =============================================================================
+
+\subsection{Purpose and scope}
+This specification defines \emph{what} BGDB stores, \emph{how} it is organised so that it can grow without a central server, and \emph{how} people contribute to it. It is meant to be read by maintainers, contributors who write tooling, and anyone who wants to build an independent client or mirror. Part I covers everything except the match viewer.
+
+\subsection{Goals}
+\begin{enumerate}[label=G\arabic*.]
+  \item Offer an open, forkable, long-lived archive of backgammon matches (a ``freedb'' for backgammon), inspired by older databases such as extmatchdb, without copying their content.
+  \item Run as a \kw{static site}: no application server, no database server, no account needed to \emph{read}.
+  \item Let anyone search quickly in the browser, even when the collection becomes large, thanks to compact, versioned, lazily loaded \kw{indexes}.
+  \item Let the collection grow ``indefinitely'' by adding \kw{shards} (possibly in new repositories) without breaking existing links, caches or indexes.
+  \item Keep the \emph{logical} description of the data independent from its \emph{storage} layout so that either can evolve.
+  \item Make contributing a match as quick and effortless as possible (Section~\ref{sec:contrib}).
+\end{enumerate}
+
+\subsection{Non-goals (for version 1)}
+\begin{itemize}
+  \item Running a game engine, online play, or live analysis inside the project (analysis results may be \emph{stored}, not produced, by BGDB).
+  \item Replacing the native formats and tools of \kw{XG}, \kw{GNU Backgammon} or similar programs.
+  \item Hosting copyrighted material without the right to do so (see Section~\ref{sec:rights}).
+  \item Real-time features, user profiles, comments threads or any feature requiring a server-side session.
+\end{itemize}
+
+\subsection{Design principles}
+\begin{description}[style=nextline,leftmargin=0.6cm]
+  \item[P1 Static first.] Every feature must work from static files plus browser code. Optional servers are extensions, never requirements.
+  \item[P2 Logical model $\neq$ storage.] Tools reason about entities and identifiers (Section~\ref{sec:logical}); files, folders and repositories are an implementation detail declared in metadata (Section~\ref{sec:storage}).
+  \item[P3 Immutability by default.] Sealed shards never change; everything derived (indexes, summaries) is rebuildable from them.
+  \item[P4 Derived data is disposable.] Indexes are never the source of truth and are not committed by contributors.
+  \item[P5 Self-describing and versioned.] Every file type carries a schema version; readers ignore what they do not understand.
+  \item[P6 Conflict-free contributions.] Two contributors must never need to edit the same file.
+  \item[P7 Ease before ceremony.] The shortest path to a valid contribution wins over procedural completeness; machines do the chores.
+  \item[P8 Graceful degradation.] A missing shard, index or analysis reduces features but never breaks the site.
+\end{description}
+
+\subsection{Conventions}
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in \src{https://www.rfc-editor.org/rfc/rfc2119}{RFC 2119}. Requirements are numbered (for example \rref{CTB-01}) so that they can be referenced from issues and tests. JSON/YAML identifiers use \texttt{camelCase}. Technical terms appear in italics at first use and are listed in the Index; the Glossary gives definitions and external sources. Sections marked \emph{informative} impose no requirements.
+
+% =============================================================================
+\section{Context and positioning (informative)}
+% =============================================================================
+Existing backgammon game collections are typically (a) tied to a server-side script (for example CGI search over a fixed database), (b) closed or proprietary (analysis files in native formats), or (c) static transcripts without search or replay. BGDB aims at the unoccupied combination: \emph{open data in a git repository}, \emph{client-side search}, \emph{in-browser replay}, \emph{community growth by pull request}.
+
+The project reuses existing community standards wherever possible: position identifiers (\kw{XGID}, \kw{GNUBGID}) and the widespread \kw{Jellyfish MAT} text format for matches. Position strings can be parsed by existing code, so the viewer can reuse its board and position decoders.
+
+% =============================================================================
+\section{Architecture overview}
+% =============================================================================
+
+\subsection{Layers}
+\begin{longtable}{@{}p{2.8cm}p{4.2cm}p{7.3cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Responsibility} & \textbf{Defined in}\\
+\midrule
+\endhead
+Logical model & Entities (match, game, action, player, event, analysis) and identifiers & Section~\ref{sec:logical}\\
+Serialization profiles & How the logical model is written as bytes (MAT, JSON, \ldots) & Section~\ref{sec:storage}\\
+Storage binding & Where profiles live: registry, shards, folders, repositories & Section~\ref{sec:storage}\\
+Identity \& integrity & Content hashes, duplicate detection, position keys & Section~\ref{sec:identity}\\
+Indexes & Derived, versioned search structures per shard and global summaries & Section~\ref{sec:indexes}\\
+Client runtime & Loading, caching, workers, offline behaviour & Section~\ref{sec:client}\\
+Search & Query model, filters, performance budgets & Section~\ref{sec:search}\\
+Contribution & Pull-request pipeline, inbox, validation, bots & Section~\ref{sec:contrib}\\
+Governance & Licensing, privacy, takedown, evolution & Sections~\ref{sec:rights}, \ref{sec:evolution}\\
+\bottomrule
+\end{longtable}
+
+\subsection{Repositories and sites}
+The recommended starting topology consists of two repositories (see Section~\ref{sec:topologies} for variants):
+\begin{description}[leftmargin=0.6cm]
+  \item[Hub repository.] The static site (UI), the validator and other tooling, the specification and documentation, the \kw{registry} listing all shards, and global overlays. It stays small forever.
+  \item[Data repository.] An \texttt{inbox/} folder that accepts contributions, and a \texttt{data/} folder containing the \kw{shards}. It publishes its own static files (shards, indexes) via its own site.
+\end{description}
+
+\subsection{Actors}
+\begin{longtable}{@{}p{3cm}p{11.3cm}@{}}
+\toprule
+\textbf{Actor} & \textbf{Role}\\
+\midrule
+\endhead
+Reader & Browses, searches, replays. Needs only a browser.\\
+Contributor & Submits matches or corrections. Needs a GitHub account for the pull-request paths.\\
+Maintainer & Reviews exceptions, manages policy, handles takedowns.\\
+Bot & Automation performing validation, feedback, normalization, ingestion, sealing, index builds.\\
+Mirror operator & Hosts a copy of a shard or the whole site; reads the registry.\\
+\bottomrule
+\end{longtable}
+
+% =============================================================================
+\section{Logical data model}\label{sec:logical}
+% =============================================================================
+This section is \emph{normative for meaning} and \emph{silent about bytes}. Any serialization that can express these entities and identifiers is a valid profile.
+
+\subsection{Entities}
+\begin{longtable}{@{}p{2.6cm}p{11.7cm}@{}}
+\toprule
+\textbf{Entity} & \textbf{Description}\\
+\midrule
+\endhead
+Match & A sequence of games between two sides, with rules and result.\\
+Game & One game inside a match: initial position, ordered actions, result.\\
+Action & One event in a game: roll, move, double, take, pass, resign offer, resign answer.\\
+Position & Checker layout plus cube, score, side to move and optional dice. Always \emph{derivable} from actions.\\
+Player & A named participant (real name, pseudonym or program) with a stable identifier.\\
+Event & A tournament, online session, club night or study set a match belongs to.\\
+Collection & A curated grouping of matches across shards (for example a championship).\\
+Provenance & Where a record came from, who submitted it, and under which rights statement.\\
+Analysis & Engine evaluations attached to a match, optional and plural.\\
+Annotation & Human comments attached to a game or action.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Match attributes}
+\begin{longtable}{@{}p{3.1cm}p{2.5cm}p{1.2cm}p{7.2cm}@{}}
+\toprule
+\textbf{Attribute} & \textbf{Type} & \textbf{Card.} & \textbf{Meaning}\\
+\midrule
+\endhead
+\texttt{id} & MatchId & 1 & Stable identifier (Section~\ref{sec:identity}).\\
+\texttt{sides} & Side[2] & 1 & The two participants, each with a PlayerRef and an optional display name as written in the source.\\
+\texttt{matchLength} & integer & 1 & Points to win; \texttt{0} means money / unlimited play.\\
+\texttt{rules} & Rules & 1 & Crawford, Jacoby, beavers, other variants; unknown values allowed.\\
+\texttt{date} & partial ISO date & 0..1 & Year, year-month or full date; absence is allowed.\\
+\texttt{event}, \texttt{round} & EventRef, string & 0..1 & Tournament context.\\
+\texttt{location} & string & 0..1 & Venue or online site.\\
+\texttt{games} & Game[] & 1..n & Ordered games.\\
+\texttt{result} & Result & 0..1 & Winner and final score; derivable if the games are complete.\\
+\texttt{collections} & CollectionRef[] & 0..n & Curated groupings.\\
+\texttt{tags} & string[] & 0..n & Free labels (lowercase, no spaces).\\
+\texttt{provenance} & Provenance & 1 & Origin and rights (below).\\
+\texttt{ext} & map & 0..1 & Namespaced extension fields (Section~\ref{sec:extensions}).\\
+\bottomrule
+\end{longtable}
+
+\subsection{Other entities in brief}
+\begin{description}[leftmargin=0.6cm]
+  \item[Game.] \texttt{index}, \texttt{startScore}, \texttt{crawford} flag, \texttt{initialPosition} (default: standard opening), \texttt{actions[]}, \texttt{result} (winner, points, kind: single/gammon/backgammon, how: bear-off/drop/resign).
+  \item[Action.] \texttt{kind} (roll, move, double, take, pass, resignOffer, resignAccept, resignReject), \texttt{side}, kind-specific payload (dice values; list of sub-moves \texttt{from}, \texttt{to}, \texttt{hit}).
+  \item[Position.] Checkers per point $1..24$, bar and off for both sides; cube value and owner; side on roll; dice (optional); score; match length; Crawford flag. Interchange form: \kw{XGID} or \kw{GNUBGID}.
+  \item[Player.] \texttt{id}, \texttt{displayName}, \texttt{aliases[]}, \texttt{kind} (human, bot, unknown), \texttt{isPseudonym}, optional external handles. Real names are optional and may be pseudonyms (Section~\ref{sec:rights}).
+  \item[Provenance.] \texttt{sourceKind}, \texttt{originalFormat}, \texttt{importer} (tool and version), \texttt{contributor} (GitHub handle, optional), \texttt{submittedAt}, \texttt{originalHash}, \texttt{license}, \texttt{rightsStatement}.
+  \item[Analysis.] \texttt{engine}, \texttt{engineVersion}, \texttt{settings}, per-action evaluation (probabilities of single/gammon/backgammon outcomes, equity, best alternatives), per-action error, and summary (average error, performance rating). Several analyses per match are allowed, keyed by engine and settings.
+  \item[Annotation.] \texttt{target} (game or action), \texttt{author}, \texttt{text} (restricted Markdown subset), \texttt{createdAt}.
+\end{description}
+
+\subsection{Derived versus canonical data}
+\req{LM-01}{Canonical data consists of the match descriptors, the games' initial positions and the ordered actions (dice and moves, cube actions, resignations). Everything else (positions after each action, pip counts, equities, summaries) is derived.}
+\req{LM-02}{Derived data MAY be cached in indexes or in analysis files, but readers MUST be able to recompute it from canonical data.}
+\req{LM-03}{Analysis and annotations MUST be stored apart from canonical match data (separate record or file), so that adding them never changes a match's identity.}
+
+\subsection{Extension and evolution}\label{sec:extensions}
+\req{EXT-01}{Every record carries a \texttt{schema} version string. Readers MUST ignore unknown fields and preserve them when copying a record.}
+\req{EXT-02}{Experimental or site-specific fields MUST live under \texttt{ext}, keyed by a namespace (for example \texttt{ext.myclub.rating}). Namespaces are first-come and documented in \texttt{docs/namespaces}.}
+\req{EXT-03}{New entities (for example \emph{Puzzle}, \emph{Commentary}) are added by extending the logical model in a minor version; they MUST NOT alter the meaning of existing attributes.}
+
+% =============================================================================
+\section{Representation and storage}\label{sec:storage}
+% =============================================================================
+
+\subsection{Decoupling}
+The logical model is mapped to bytes in two independent steps:
+\begin{enumerate}
+  \item A \kw{serialization profile} turns logical records into files (for example \texttt{mat+meta}, \texttt{bgdb-json}).
+  \item A \kw{storage binding} says where files live: a \texttt{base} location per shard, relative paths inside it, and an optional directory sharding rule.
+\end{enumerate}
+\req{ST-01}{Tools MUST access matches through the logical model (a \emph{codec} layer plus a resolver), never by constructing file paths by hand.}
+\req{ST-02}{A shard declares in \texttt{shard.json} the profiles it uses (\texttt{formats}) and their capabilities. A profile MUST declare which logical fields it can carry; fields it cannot carry are stored in a sidecar record.}
+\req{ST-03}{Version 1 defines two profiles. \textbf{\texttt{mat+meta}}: the match as a \kw{Jellyfish MAT} text file, plus a small JSON/YAML sidecar for metadata, rights and tags. \textbf{\texttt{bgdb-json}}: a lossless JSON serialization of the logical model, produced by the build step for the client.}
+\req{ST-04}{Additional profiles (binary, compressed, other text formats) MAY be added without changing the logical model; clients ignore profiles they do not support when another is available.}
+
+\subsection{Registry}
+The \kw{registry} (\texttt{registry.json}, Appendix~\ref{app:registry}) is the single entry point for clients. It lists shards with a stable \texttt{id}, a \texttt{base} location, a \texttt{status} and summary information.
+\req{ST-10}{\texttt{base} MAY be a path relative to the registry's URL or an absolute URL. Clients MUST resolve it against the URL from which the registry was loaded.}
+\req{ST-11}{Nothing inside a shard may contain absolute URLs or repository names; all internal references are relative to \texttt{base}.}
+\req{ST-12}{Match identifiers embed the shard identifier but never a location (Section~\ref{sec:identity}), so moving a shard does not break links.}
+\req{ST-13}{The registry carries a \texttt{schema} version and MAY list \texttt{mirrors} per shard (ordered alternative bases). Clients SHOULD fall back to mirrors on failure.}
+
+\subsection{Shards}
+A \kw{shard} is a self-contained, bounded group of matches with its own metadata, files and indexes. Shards are defined by \emph{ingestion order}, not by any content attribute.
+\req{SH-01}{Exactly one shard is \texttt{open} at any time; it receives new matches. All others are \texttt{sealed}.}
+\req{SH-02}{A shard is sealed automatically when any threshold in the registry's \texttt{sealPolicy} is reached (default: 20\,000 matches, or 300\,MB compressed, or the position index exceeds a configured size). Thresholds apply to future shards only.}
+\req{SH-03}{Sealed shards are immutable. Corrections and removals are expressed as overlays (Section~\ref{sec:overlays}).}
+\req{SH-04}{Content attributes (date, players, event, length) are exposed through per-shard \emph{summaries} in \texttt{shard.json}, never through the shard assignment.}
+
+\subsection{Shard layout}
+\begin{lstlisting}
+<base>/
+  shard.json              # identity, status, counts, summaries, formats
+  manifest.json           # list of files with hashes (see Section 8)
+  matches/<h2>/<hash>.mat # primary files (profile mat+meta)
+  matches/<h2>/<hash>.meta.json
+  analysis/<h2>/<hash>.<engine>.json     # optional
+  index/...               # derived, built by CI
+\end{lstlisting}
+Here \texttt{<h2>} is the first two hexadecimal characters of the match hash, keeping directories small. This is a storage detail (see \rref{ST-01}).
+
+\subsection{Overlays}\label{sec:overlays}
+\kw{Overlays} are small files in the hub (or a dedicated overlay location) that the client applies on top of sealed shards: \texttt{tombstones.json} (hide a match), \texttt{patches.json} (replace metadata), \texttt{aliases.json} (merge player identities), \texttt{collections.json} (membership).
+\req{OV-01}{Overlays reference matches by identifier only and carry a reason and a date.}
+\req{OV-02}{Overlays are versioned and cacheable like any other file. Rebuilding indexes MUST apply overlays or ignore tombstoned entries at query time.}
+
+\subsection{Deployment topologies (informative)}\label{sec:topologies}
+Because only \texttt{base} varies, the same specification supports:
+\begin{description}[leftmargin=0.6cm]
+  \item[T1 -- Single repository.] Hub and data together; shards are folders (\texttt{base} relative). Simplest to start.
+  \item[T2 -- Hub plus one data repository (recommended).] The site and tooling live apart from data. When the data repository nears its limits, sealed shards are moved to a new repository and only their \texttt{base} is changed.
+  \item[T3 -- Federation.] Many repositories, possibly owned by different organisations (clubs, tournaments), each exposing shards that follow \texttt{shard.json} and are listed in the registry.
+\end{description}
+Moving a shard preserves its identifiers, hashes and cached files; git history MAY be preserved with \kw{git-filter-repo} but is not required.
+
+% =============================================================================
+\section{Identity, integrity and normalization}\label{sec:identity}
+% =============================================================================
+
+\subsection{Match identity}
+\req{ID-01}{A match identifier has the form \texttt{<shardId>/<hash>}, for example \texttt{0007/3f9a1c5e0b72d814}. The hash is the first 16 or more hexadecimal characters of a \kw{SHA-256} digest of the \emph{canonical content} (\rref{LM-01}).}
+\req{ID-02}{The identity MUST NOT depend on descriptive metadata (names, event, date, tags), analysis or annotations; correcting a typo in a player name does not create a new match.}
+\req{ID-03}{The identity MUST be invariant under reordering of the two players in the source file. The exact canonicalization (side labelling, treatment of optional comments, line endings, move ordering within a turn) is to be fixed in Annex~A of the final 1.0 specification; until then, implementations MUST follow the reference implementation.}
+\req{ID-04}{Hash collisions at the chosen length MUST be detected by CI; the identifier then extends to a longer prefix for the later record.}
+
+\subsection{Duplicate detection}
+\req{DU-01}{The hub maintains (or derives) a list of all match content hashes. The validator, both in the browser and in CI, checks submissions against it and reports duplicates \emph{before} merge.}
+\req{DU-02}{A duplicate is never an error that blocks a contributor with additions: new metadata, analysis or annotations on an existing match are accepted as enrichment (Section~\ref{sec:enrichment}).}
+
+\subsection{Position keys}
+\req{PK-01}{Positions are keyed by a 64-bit \kw{Zobrist hash} computed on the canonical position from the viewpoint of the side on roll (so colours and board orientation do not matter). Cube value and owner are part of the key; dice are not.}
+\req{PK-02}{The random table is generated from a fixed algorithm and seed published in Annex~B so that independent implementations obtain identical keys.}
+\req{PK-03}{Positions are exchanged with humans and other programs as \kw{XGID} or \kw{GNUBGID}; both MUST be accepted wherever a position is entered.}
+
+\subsection{Normalization of inputs}
+\req{NO-01}{Text input is normalized to Unicode NFC, LF line endings, trimmed trailing whitespace, and player names compared case- and accent-insensitively for matching purposes (display names keep their original form).}
+\req{NO-02}{Importers convert foreign formats to the logical model and record the original format and file hash in provenance.}
+
+% =============================================================================
+\section{Indexes}\label{sec:indexes}
+% =============================================================================
+\kw{Indexes} are derived, rebuildable and versioned (P3, P4). Each shard publishes its own; the hub publishes only small global summaries.
+
+\subsection{General rules}
+\req{IX-01}{Every index file is listed in the shard's \texttt{manifest.json} with \texttt{type}, \texttt{version}, \texttt{hash}, \texttt{size} and \texttt{encoding}. Clients MUST skip index types or versions they do not know and fall back to slower strategies.}
+\req{IX-02}{Index files are named by content hash (for example \texttt{catalog.3f9a1c.json.gz}) so that they can be cached for ever.}
+\req{IX-03}{Indexes are built by CI on the data repository and deployed with the site. They are never edited by hand and never part of a contributor's pull request.}
+
+\subsection{Index families}
+\begin{longtable}{@{}p{2.7cm}p{6cm}p{5.6cm}@{}}
+\toprule
+\textbf{Index} & \textbf{Content} & \textbf{Technique}\\
+\midrule
+\endhead
+Catalog & One compact row per match: id, players, event, date, length, result, flags (analysis, gammon, \ldots). Sorted by date, split by year when large. & Columnar JSON or binary arrays, gzip. Filters are array scans.\\
+Text index & Players, events, tags, collections. & \kw{Inverted index} with prefix search (\kw{trie} or $n$-grams), \kw{delta encoding} and \kw{variable-length quantity} postings, sharded by first characters.\\
+Opening index & First plies of each game keyed by dice. & Compact \kw{trie}: answers ``what is played after 31?'' cheaply.\\
+Position index & Mapping from position key to (match, game, ply). & Zobrist keys sharded by hash prefix; per-shard \kw{Bloom filter} for fast negative answers.\\
+Shard summary & Date range, length distribution, player filter, event list, counts. & Stored in \texttt{shard.json}; used to skip shards.\\
+Global directory & Maps player and event identifiers to shard lists. & Small file in the hub, derived from summaries.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Size control for the position index}
+Full indexing of every position grows quickly. Policy options, selectable per shard in \texttt{shard.json}: index only the first $N$ plies; only positions with cube decisions; only positions flagged by analysis (errors above a threshold); or everything (``full'' tier).
+\req{IX-10}{The indexed policy MUST be recorded in the shard summary so that the UI can tell users when a position search is partial.}
+
+\subsection{Evolution}
+\req{IX-20}{A later \emph{derived global index} over sealed shards (generation-based compaction, similar to a \kw{LSM tree}) MAY be added without changing the storage layout; it is announced in the registry as an optional capability.}
+
+% =============================================================================
+\section{Client runtime and caching}\label{sec:client}
+% =============================================================================
+
+\subsection{Storage layers}
+\begin{longtable}{@{}p{3.3cm}p{5cm}p{5.8cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Use} & \textbf{Note}\\
+\midrule
+\endhead
+\kw{Service Worker} + \kw{Cache API} & Cache fetched files, enable offline use & Content-addressed files can be kept for ever.\\
+\kw{IndexedDB} & Parsed catalog, text index, small structures & Skips repeated parsing.\\
+\kw{OPFS} & Large binary shards (position index) & Optional; use when supported.\\
+\texttt{localStorage} & Version pointers, preferences & Tiny only.\\
+HTTP cache & Free baseline & GitHub Pages controls headers, so it cannot be relied upon.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Loading protocol}
+\req{CL-01}{On start the client fetches the \texttt{registry.json} without using its cache (conditional request), then compares each shard's \texttt{manifestHash} with the stored value.}
+\req{CL-02}{A sealed shard whose hash is unchanged is never re-checked during the session. Only open shards and the registry are revalidated.}
+\req{CL-03}{Files whose names contain their hash are fetched at most once per browser; changed files are downloaded and old versions deleted after success.}
+\req{CL-04}{The catalog loads first; text and position indexes load lazily on first use. Search over cached data MUST work before the update check completes.}
+\req{CL-05}{Parsing, decompression and index building run in a \kw{Web Worker} so the interface stays responsive; \kw{DecompressionStream} is used where available.}
+\req{CL-06}{The client requests persistent storage, shows cache size (via the storage estimate API) and offers a ``clear local data'' action.}
+\req{CL-07}{The application MUST work with a cold cache: eviction or corruption is detected (hash check on critical files) and repaired by re-download.}
+\req{CL-08}{Several tabs coordinate updates through a \kw{BroadcastChannel} or database versioning so that updates are not applied twice.}
+\req{CL-09}{Cross-origin loading of shard files is assumed (\kw{CORS}); the client never assumes the same origin as the registry.}
+\req{CL-10}{The UI displays the data version (``index up to date, v2026.10.02'') and, when updating, the amount to download.}
+
+\subsection{Failure behaviour}
+\req{CL-20}{If a shard or an index file cannot be loaded, the client continues with the remaining shards, tries mirrors, and shows a non-blocking notice that results may be incomplete.}
+
+% =============================================================================
+\section{Search}\label{sec:search}
+% =============================================================================
+
+\subsection{Query model}
+Search combines a free-text part and structured filters (facets). All queries are serializable in the URL fragment (for example \texttt{\#q=player:smith year:2019..2024 len:7}) so that a result list can be shared.
+\begin{longtable}{@{}p{3.6cm}p{10.7cm}@{}}
+\toprule
+\textbf{Filter} & \textbf{Meaning}\\
+\midrule
+\endhead
+\texttt{player:} & Matches where a player (any alias) took part; \texttt{vs:} for the pair.\\
+\texttt{event:}, \texttt{collection:}, \texttt{tag:} & Context filters.\\
+\texttt{year:} & Single year or range.\\
+\texttt{len:} & Match length (\texttt{0} for money games).\\
+\texttt{result:} & Winner, gammon or backgammon present.\\
+\texttt{score:} & Match score reached (for example 2-away/2-away).\\
+\texttt{hasAnalysis:}, \texttt{maxError:} & Analysis availability and thresholds.\\
+\texttt{pos:} & Exact position (XGID or GNUBGID), optionally with cube state.\\
+\texttt{opening:} & Opening roll and play.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Behaviour and budgets}
+\req{SE-01}{Type-ahead suggestions for players and events appear within 100\,ms of a keystroke once the text index shard is loaded.}
+\req{SE-02}{Filtering the catalog returns the first page of results within 200\,ms on a mid-range laptop for a catalog of 100\,000 matches.}
+\req{SE-03}{Results are paginated lazily and sorted by relevance, date or length; identical queries give identical order.}
+\req{SE-04}{A position search fetches at most the shards whose summaries or filters can contain the key, and reports which shards were consulted.}
+\req{SE-05}{Search is case- and accent-insensitive; player aliases (from overlays) are expanded transparently.}
+\req{SE-06}{First-load budget (informative target): catalog $\leq$ 3\,MB compressed for 100\,000 matches; subsequent visits download only changed files.}
+
+% =============================================================================
+\section{Contribution workflow}\label{sec:contrib}
+% =============================================================================
+
+\subsection{Objective: a feeling of ease}
+Growth of the database depends on how little effort a contribution costs. The workflow is designed around one idea: \emph{contributors supply a file; machines do everything else.}
+
+\req{EAS-01}{A first-time contributor with a match file in hand MUST be able to submit it in under three minutes, without reading documentation, without knowing about shards, hashes, folders or formats.}
+\req{EAS-02}{Contributors never have to name files, compute identifiers, fill mandatory metadata that can be inferred, or edit any shared file.}
+\req{EAS-03}{Every failure message states in plain language what is wrong, where, and how to fix it, and when possible offers a one-click fix.}
+\req{EAS-04}{The contribution can be validated \emph{before} submission, in the browser, with the same validator that CI uses (one code base, two runtimes).}
+\req{EAS-05}{Contributions never conflict: the pull-request model MUST ensure that two valid pull requests can always be merged in any order (P6).}
+\req{EAS-06}{Contributors receive automated feedback within five minutes and, for clean submissions, automatic merging within ten minutes.}
+\req{EAS-07}{Contributors are credited automatically and visibly (opt-out available).}
+
+\subsection{The inbox model}\label{sec:inbox}
+Contributors add files only to an \texttt{inbox/} folder of the data repository, under any file name, in any supported input format. Nothing in \texttt{data/} is touched by a pull request.
+\begin{lstlisting}
+data-repo/
+  inbox/                     # contributors drop files here (any name)
+    Smith_vs_Jones.mat
+    worldchamp2019-final.txt
+    batch-2026-10/           # optional sub-folders for bulk submissions
+  data/
+    0001/ ... (sealed)
+    0007/ ... (open)         # written only by the ingestion bot
+  .github/
+    ISSUE_TEMPLATE/submit-match.yml
+    PULL_REQUEST_TEMPLATE.md
+    workflows/validate.yml, ingest.yml, build.yml
+  CONTRIBUTING.md            # three short paragraphs
+\end{lstlisting}
+\req{CTB-01}{A pull request is valid when it only adds or modifies files under \texttt{inbox/}. Changes elsewhere require maintainer review.}
+\req{CTB-02}{File names under \texttt{inbox/} are arbitrary but unique within the pull request. Names carry no meaning; metadata comes from file contents, an optional sidecar, or the submission form.}
+\req{CTB-03}{After merge, the \kw{ingestion} job (Section~\ref{sec:ingest}) normalizes, identifies, renames and places each file into the open shard, then removes it from the inbox. Contributors never see shard structure.}
+\req{CTB-04}{Because file names are free and generated indexes are not committed, two pull requests cannot modify the same file; merge conflicts are structurally avoided.}
+
+\subsection{Contribution paths}\label{sec:paths}
+All paths lead to the same result: files in \texttt{inbox/} merged through a pull request. The more convenient paths come first.
+\begin{longtable}{@{}p{0.8cm}p{3.0cm}p{3.0cm}p{6.8cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Path} & \textbf{Needs} & \textbf{Experience}\\
+\midrule
+\endhead
+C1 & ``Drop a file'' on the website & Browser, GitHub account & Drag the file(s) onto a page. The page parses and validates locally, shows a summary and detected duplicates, pre-fills metadata, and hands over to GitHub with one click.\\
+C2 & ``Paste a match'' form & Browser, GitHub account & Paste the transcript into a form; a bot turns it into a pull request. Works on phones.\\
+C3 & GitHub web upload & GitHub account & \emph{Add file $\rightarrow$ Upload files} on \texttt{inbox/}; GitHub forks and opens the pull request automatically.\\
+C4 & Command line & Node.js, git & \texttt{npx bgdb submit file.mat} validates, normalizes and opens the pull request through the GitHub CLI.\\
+C5 & Bulk importer & Node.js, git & \texttt{bgdb import --format <name> folder/} converts an archive and splits it into several pull requests.\\
+C6 & ``Suggest a fix'' on a match page & Browser, GitHub account & Pre-filled edit of metadata, or request of takedown, from the match page itself.\\
+C7 & Relay bot (optional extension) & Browser & A small serverless function creates the pull request on the contributor's behalf; no GitHub account needed; moderated.\\
+\bottomrule
+\end{longtable}
+
+\subsubsection*{C1 -- Drop a file (primary path)}
+\req{CTB-10}{The ``Contribute'' page accepts one or many files by drag and drop, a file chooser, or paste. It detects the format, parses it with the shared validator, and shows for each match: players, date, length, result, number of moves, and \emph{OK / warning / error} badges.}
+\req{CTB-11}{The page shows a miniature replay (first and last position) so the contributor can recognise their match and confirm it was parsed correctly.}
+\req{CTB-12}{The page looks up duplicates using the global hash list and marks them (``already in the database since 2026-03-12''), offering to submit enrichment only (Section~\ref{sec:enrichment}).}
+\req{CTB-13}{Metadata (event, date, location, player aliases) is inferred from headers, file names and previous contributions; the contributor can correct it inline. Unknown fields stay empty and are never blocking.}
+\req{CTB-14}{A single checkbox states the rights declaration (``I have the right to share this under the database licence''); the licence and a short privacy note are shown once, with a link to details.}
+\req{CTB-15}{The hand-over uses one of the following \emph{transports}, in this order of preference, selected automatically by size and capability:}
+\begin{enumerate}[label=T\arabic*., leftmargin=1.5cm]
+  \item \textbf{Pre-filled issue.} A link to the data repository's issue form (Appendix~\ref{app:issueform}) with title and body pre-filled and the payload (compressed, URL-safe) embedded; a bot converts the issue into a pull request. Limited by URL length, so used for single matches.
+  \item \textbf{Download and upload.} The page produces a normalized file with a good name (and a ZIP for several files) and opens GitHub's upload page for \texttt{inbox/}; the contributor drops the file in and presses \emph{Propose changes}.
+  \item \textbf{Relay} (if enabled): one click, no GitHub account.
+\end{enumerate}
+The hand-over MUST work without the website holding any secret; secrets are only used by optional relay components.
+
+\subsubsection*{C2 -- Paste a match}
+\req{CTB-20}{The issue form (Appendix~\ref{app:issueform}) accepts a pasted transcript in any supported text format and optional free-text notes. A bot creates a branch and a pull request containing the file, links it to the issue, and replies with the validation report.}
+\req{CTB-21}{If the pasted text cannot be parsed, the bot replies in the issue with the first error position and does \emph{not} open a pull request; editing the issue triggers a new attempt.}
+
+\subsubsection*{C3 -- GitHub web upload}
+\req{CTB-30}{The repository's \texttt{inbox/README.md} contains a three-line instruction and a direct link to the upload page. The pull request template is reduced to one checkbox (rights) and an optional comment field.}
+
+\subsubsection*{C4 and C5 -- Command line and bulk import}
+\req{CTB-40}{The CLI bundles the validator, normalizer, importers and exporters, runs offline, and prints the same messages as the website and the bot.}
+\req{CTB-41}{\texttt{bgdb submit} creates the fork and branch if needed, commits the files to \texttt{inbox/}, and opens the pull request, with a dry-run mode.}
+\req{CTB-42}{Importers exist as plug-ins (input format $\rightarrow$ logical model) with a documented interface, so new sources can be added by contributors. Bulk imports are split into pull requests of at most 500 matches each (configurable) so that review and CI stay fast.}
+\req{CTB-43}{Large imports (for example a club archive) SHOULD be announced in an issue so that maintainers can coordinate rights and licensing.}
+
+\subsubsection*{C6 -- Suggest a fix}\label{sec:enrichment}
+\req{CTB-50}{Each match page offers: \emph{Fix metadata}, \emph{Add analysis}, \emph{Add comment}, \emph{Report a problem}. Each opens GitHub with a pre-filled pull request or issue targeting an overlay or enrichment file (\texttt{inbox/enrich/<id>.json}), never a sealed shard.}
+\req{CTB-51}{Enrichment submissions are validated against the existing match identity (the target must exist) and are merged by the same automation.}
+
+\subsubsection*{C7 -- Optional relay}
+\req{CTB-60}{A relay MUST be optional, replaceable, and documented. It receives a payload, runs the same validator, and creates a pull request with a bot identity using a token held by the relay only. Anonymous submissions pass through a moderation queue (label \texttt{needs-review}) and rate limits.}
+
+\subsection{Validation pipeline}\label{sec:validation}
+Validation runs, in this order and with the same code, in the browser, in the CLI and in CI. Severity levels: \textbf{error} blocks merge, \textbf{warning} allows merge and is flagged, \textbf{info} is advisory.
+\begin{longtable}{@{}p{1.7cm}p{5.0cm}p{1.6cm}p{5.5cm}@{}}
+\toprule
+\textbf{Check} & \textbf{What it verifies} & \textbf{Severity} & \textbf{Typical fix offered}\\
+\midrule
+\endhead
+V-FILE & Allowed extension, size limit, not an archive bomb, text encoding detectable & error & Re-save as plain text; split large files.\\
+V-FORMAT & Format detected and parsed into the logical model & error & Show first failing line and expected syntax.\\
+V-LEGAL & Every move legal (dice, blocked points, hits, bar, bear-off, cube rules) & error & Highlight the first illegal move; offer to cut the transcript at that point.\\
+V-SCORE & Score, Crawford and result consistent with the games & error / warning & Recompute; offer corrected metadata.\\
+V-META & Metadata matches the schema; dates plausible; tags well formed & warning & Normalize automatically.\\
+V-NAMES & Player names resolved to identities or flagged as new & info & Suggest known aliases.\\
+V-DUP & Content hash already known (within the PR or database) & info & Offer ``enrichment only''.\\
+V-RIGHTS & Rights checkbox present; no obvious private data (e-mail, phone) in comments & error / warning & Offer to remove the flagged text.\\
+V-SIZE & Pull request within limits (files, total size) & error & Suggest splitting.\\
+V-ANALYSIS & Analysis (if present) consistent with the match; engine declared & warning & Strip or relabel.\\
+\bottomrule
+\end{longtable}
+\req{VA-01}{Validation MUST be deterministic and side-effect free; it MUST NOT execute contributed content or follow links.}
+\req{VA-02}{Error messages MUST include a stable code, a human sentence, a location (file, line), and a \emph{how to fix} hint. A machine-readable report (\texttt{report.json}) is produced for tools.}
+\req{VA-03}{Where a normalization is unambiguous (line endings, encoding, whitespace, header casing, file naming), the bot applies it silently and reports it as \emph{info} rather than asking the contributor to fix it.}
+
+\subsection{Feedback to the contributor}
+\req{FB-01}{The bot posts one comment per pull request (updated in place on each push) with: a one-line verdict, a table of matches (new / duplicate / enrichment / error), warnings with fixes, and a ``what happens next'' sentence.}
+\req{FB-02}{The tone is friendly and short; the first comment for a new contributor includes a welcome and a link to a two-minute guide.}
+\req{FB-03}{Labels reflect state: \texttt{ready}, \texttt{needs-fix}, \texttt{duplicate}, \texttt{needs-review}, \texttt{auto-merge}, \texttt{enrichment}, \texttt{bulk}.}
+\begin{lstlisting}
+Thanks, @alice! Checked 3 matches in 4 s.
+  OK       Smith vs Jones, 7 pts, 2019-05-04          -> will be added
+  OK       Lee vs Park, 9 pts (no date found)          -> will be added
+  Skipped  Chen vs Ito, 5 pts: already in the database (0002/3f9a...)
+Notes: line endings were normalised. Names matched to existing players.
+Next: this pull request merges automatically in about 10 minutes.
+\end{lstlisting}
+
+\subsection{Merge policy and automation}\label{sec:merge}
+\req{MP-01}{A pull request that (a) only touches \texttt{inbox/}, (b) has no errors, (c) is within size limits, (d) has the rights declaration, and (e) comes from a contributor without outstanding moderation flags, is merged automatically after a short delay (default ten minutes, to allow withdrawal).}
+\req{MP-02}{Pull requests with warnings of type V-NAMES, V-ANALYSIS or V-RIGHTS go to \texttt{needs-review}. Maintainers answer within a published service target (default: seven days) and may delegate review to trusted contributors.}
+\req{MP-03}{Pull requests touching anything other than \texttt{inbox/} (tools, policy, overlays) follow normal code review and CODEOWNERS rules.}
+\req{MP-04}{The system continues to function with zero human review for clean submissions; humans handle exceptions only.}
+
+\subsection{Ingestion after merge}\label{sec:ingest}
+\req{IN-01}{The ingestion job runs on every push to the default branch, serialized by a concurrency group so that two ingestions never write the same shard simultaneously.}
+\req{IN-02}{For each inbox file the job: re-validates; converts to the shard's primary profile; computes the content hash and identifier; skips or enriches duplicates; writes files into the open shard; updates \texttt{shard.json} counts and summaries; removes the inbox file; and commits with a message listing the contributor.}
+\req{IN-03}{If the open shard reaches a seal threshold, the job marks it \texttt{sealed}, creates the next shard, and updates the registry. When the next shard lives in a new repository, a maintainer-approved workflow creates the repository from a template and updates the hub.}
+\req{IN-04}{The build job generates indexes and manifests and deploys the site. A failed build never removes the previously deployed version.}
+
+\subsection{Corrections, removals and enrichment}
+\req{CR-01}{Corrections to sealed shards are stored as overlay or enrichment records (\rref{OV-01}) and take effect at the next site build, without rewriting sealed files.}
+\req{CR-02}{A takedown request is accepted through an issue form and acted on promptly (Section~\ref{sec:rights}). Hard removal (history rewrite) is reserved for legal necessity and documented in a public log.}
+
+\subsection{Recognition}
+\req{RC-01}{Each match page shows ``contributed by'' (GitHub handle or pseudonym, opt-out available) and the submission date. A generated \texttt{CONTRIBUTORS} page lists contributors by number of matches and by first contribution date.}
+\req{RC-02}{The bot thanks the contributor on merge and links to the live page of the new match.}
+
+\subsection{Security of the contribution pipeline}
+\req{SC-01}{Workflows triggered by pull requests from forks use read-only tokens and run only the data validator; they never execute code from the pull request. Privileged steps (merging, ingestion) run on the default branch.}
+\req{SC-02}{The validator runs with resource limits (time, memory, file size, decompression ratio) and processes data as text only.}
+\req{SC-03}{First-time contributors may need workflow approval from a maintainer according to repository settings; the documentation tells contributors that this is expected and how long it takes. Maintainers MAY allow automatic approval for pull requests touching only \texttt{inbox/}.}
+\req{SC-04}{Third-party actions are pinned to commit hashes; secrets are never exposed to fork-triggered workflows.}
+
+\subsection{Metrics}
+\req{ME-01}{The project tracks, in aggregate and publicly: median time from submission to merge, share of submissions merged without human intervention, top error codes, share of abandoned pull requests, and number of first-time contributors per month. Error codes that dominate are candidates for better automatic fixes.}
+
+% =============================================================================
+\section{Rights, privacy and governance}\label{sec:rights}
+% =============================================================================
+\req{RP-01}{Data is published under an open licence chosen before the first public release (candidates: \kw{CC0} or \kw{CC BY}). The licence is stated in the registry, in every \texttt{shard.json} and in every match's provenance.}
+\req{RP-02}{Contributors affirm they have the right to share what they submit. Content scraped from other databases without permission MUST NOT be accepted.}
+\req{RP-03}{Player identity is optional and may be a pseudonym. Because git history is public and durable, the contribution page warns about real names, and a documented takedown path exists.}
+\req{RP-04}{Analysis files record the engine and licence conditions; analysis produced by software whose terms forbid redistribution MUST NOT be accepted.}
+\req{RP-05}{Governance is lightweight: maintainers decide policy through public issues; significant changes follow the proposal process of Section~\ref{sec:evolution}.}
+
+% =============================================================================
+\section{Evolution and compatibility}\label{sec:evolution}
+% =============================================================================
+\req{EV-01}{The specification, registry, shard metadata, manifests, indexes and match records follow \kw{semantic versioning} of their own schemas. A major change requires a migration plan.}
+\req{EV-02}{Readers MUST support all minor versions of a major version, and SHOULD support the previous major version for at least two minor releases of the next one (``read old, write new'').}
+\req{EV-03}{Schema changes never rewrite sealed shards. Old records are upgraded at read time (``upcasting''); a shard MAY be re-serialized into a new shard generation when the benefit is clear.}
+\req{EV-04}{Changes to the model or workflow are proposed as short documents in \texttt{rfcs/NNNN-title.md} (motivation, design, compatibility, alternatives) and discussed in a pull request. Decisions are recorded in \texttt{docs/decisions}.}
+\req{EV-05}{Capability flags in the registry (for example \texttt{positionIndex}, \texttt{analysis}, \texttt{globalIndex}) allow clients and data to evolve at different speeds.}
+\req{EV-06}{The validator and importers are versioned packages; the data repository pins their version, and updates are proposed by bot pull requests.}
+
+% =============================================================================
+\section{Non-functional requirements}\label{sec:nfr}
+% =============================================================================
+\begin{itemize}
+  \item \textbf{Performance.} See Sections~\ref{sec:search} and~\ref{sec:client}. First useful result after a cold start in under five seconds on a typical broadband connection for 20\,000 matches.
+  \item \textbf{Offline.} After the first visit the site works offline for cached shards.
+  \item \textbf{Accessibility.} The interface targets WCAG 2.2 AA: keyboard operation, sufficient contrast, textual alternatives for board states.
+  \item \textbf{Mobile.} All reading and contribution paths work on small touch screens (paths C1, C2 in particular).
+  \item \textbf{Browsers.} Current versions of the major browsers; features beyond the baseline (OPFS, streaming decompression) are progressive enhancements.
+  \item \textbf{Internationalization.} Interface strings are externalised; names and comments are stored as Unicode.
+  \item \textbf{Longevity.} Raw data is plain text; no component is required to read it other than a text editor and the published formats.
+  \item \textbf{Hosting limits.} Plan for the size limits of the chosen host (for example about 1\,GB per \kw{GitHub Pages} site) and move shards (T2/T3) before limits are reached.
+\end{itemize}
+
+% =============================================================================
+\section{Outlook: the replay interface (Part II)}\label{sec:replay}
+% =============================================================================
+The replay and information display are specified in Part II. The data model above already guarantees the hooks that design will need:
+\begin{itemize}
+  \item deterministic reconstruction of any position from canonical actions (\rref{LM-01});
+  \item per-action analysis lookup when analysis exists (\rref{LM-03});
+  \item annotations attached to games and actions;
+  \item stable deep links built from the match identifier plus game and ply;
+  \item position identifiers in standard formats for copy and paste into other tools.
+\end{itemize}
+Topics for Part II: board rendering and themes, playback controls and keyboard shortcuts, panels (score, pip count, cube, match equity, dice history), analysis display (equity graph, errors, alternatives), annotations, mobile layout, accessibility, embedding and export (links, images), and performance of long matches.
+
+\subsection*{Open questions}
+\begin{enumerate}[label=Q\arabic*.]
+  \item Final canonicalization for the match hash (\rref{ID-03}) and the Zobrist table seed (\rref{PK-02}).
+  \item Which licence: \kw{CC0} (maximum reuse) or \kw{CC BY} (attribution)?
+  \item Default seal thresholds after measuring real index sizes on a sample of 5\,000 matches.
+  \item Choice between binary and JSON encodings for the position index.
+  \item Whether to operate the optional relay (C7) from the start.
+  \item Naming of the project and repositories.
+\end{enumerate}
+
+% =============================================================================
+\appendix
+\section{Example: registry}\label{app:registry}
+\begin{lstlisting}
+{
+  "schema": "1.0",
+  "name": "BGDB",
+  "license": "CC0-1.0",
+  "capabilities": ["catalog", "textIndex", "openingIndex", "positionIndex"],
+  "sealPolicy": { "maxMatches": 20000, "maxCompressedMB": 300 },
+  "shards": [
+    { "id": "0001", "base": "https://example.github.io/bgdb-data/data/0001/",
+      "status": "sealed", "matches": 20000, "manifestHash": "a1b2c3...",
+      "mirrors": [] },
+    { "id": "0002", "base": "https://example.github.io/bgdb-data/data/0002/",
+      "status": "open", "matches": 4312, "manifestHash": "d4e5f6..." }
+  ],
+  "overlays": { "tombstones": "overlays/tombstones.json",
+                "patches": "overlays/patches.json",
+                "aliases": "overlays/aliases.json",
+                "collections": "overlays/collections.json" }
+}
+\end{lstlisting}
+
+\section{Example: shard metadata}
+\begin{lstlisting}
+{
+  "schema": "1.0",
+  "id": "0002",
+  "status": "open",
+  "formats": ["mat+meta", "bgdb-json"],
+  "counts": { "matches": 4312, "games": 28104 },
+  "summary": {
+    "dateRange": ["2008", "2026-09-30"],
+    "matchLengths": { "0": 120, "5": 800, "7": 1500, "9": 900, "11": 700, "other": 292 },
+    "events": ["evt-0031", "evt-0045"],
+    "playerFilter": { "type": "bloom", "bits": 65536, "hashes": 5, "data": "..." },
+    "positionIndexPolicy": "firstPlies:12"
+  }
+}
+\end{lstlisting}
+
+\section{Example: match (logical JSON profile)}
+\begin{lstlisting}
+{
+  "schema": "1.0",
+  "id": "0002/3f9a1c5e0b72d814",
+  "sides": [ { "player": "p-0042", "name": "J. Smith" },
+             { "player": "p-0107", "name": "A. Jones" } ],
+  "matchLength": 7,
+  "rules": { "crawford": true, "jacoby": false },
+  "date": "2019-05-04",
+  "event": "evt-0031",
+  "games": [ {
+    "index": 1, "startScore": [0, 0],
+    "actions": [
+      { "kind": "roll", "side": 0, "dice": [3, 1] },
+      { "kind": "move", "side": 0, "moves": [ { "from": 8, "to": 5, "hit": false },
+                                              { "from": 6, "to": 5, "hit": false } ] }
+    ],
+    "result": { "winner": 1, "points": 2, "kind": "gammon", "how": "bearOff" }
+  } ],
+  "provenance": { "originalFormat": "mat", "contributor": "alice",
+                  "submittedAt": "2026-10-02", "license": "CC0-1.0" }
+}
+\end{lstlisting}
+
+\section{Example: manifest}
+\begin{lstlisting}
+{
+  "schema": "1.0",
+  "generated": "2026-10-02T10:00:00Z",
+  "files": [
+    { "path": "index/catalog.3f9a1c.json.gz", "type": "catalog", "version": 1,
+      "hash": "3f9a1c...", "size": 812345, "encoding": "gzip" },
+    { "path": "index/text/ab.77c2e0.bin", "type": "textIndexShard", "version": 1,
+      "hash": "77c2e0...", "size": 40211, "encoding": "none" }
+  ]
+}
+\end{lstlisting}
+
+\section{Example: issue form for ``Paste a match''}\label{app:issueform}
+\begin{lstlisting}
+name: Submit a match
+description: Paste a match transcript. A bot will check it and open a pull request.
+title: "Match: "
+labels: ["submission"]
+body:
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Match transcript
+      description: Paste the text of the match (MAT, or other supported format).
+    validations: { required: true }
+  - type: input
+    id: event
+    attributes: { label: Event or site (optional) }
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: Rights
+      options:
+        - label: I have the right to share this under the database licence.
+          required: true
+\end{lstlisting}
+
+\section{Example: workflow skeletons}
+\begin{lstlisting}
+# .github/workflows/validate.yml  (runs on pull requests, read-only)
+name: validate
+on: { pull_request: { paths: ["inbox/**"] } }
+permissions: { contents: read, pull-requests: write }
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - uses: example/bgdb-validator@<pinned-sha>   # data-only, no PR code executed
+        with: { path: inbox, report: report.json }
+      - uses: example/bgdb-comment@<pinned-sha>      # posts/updates the bot comment
+
+# .github/workflows/ingest.yml  (runs on the default branch)
+name: ingest
+on: { push: { branches: [main], paths: ["inbox/**"] } }
+concurrency: { group: ingest, cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - run: npx bgdb-ingest --inbox inbox --data data
+      - run: git add -A && git commit -m "ingest" && git push
+\end{lstlisting}
+
+\section{Requirement index by area}
+\begin{longtable}{@{}p{3.6cm}p{10.7cm}@{}}
+\toprule
+\textbf{Prefix} & \textbf{Area}\\
+\midrule
+\endhead
+LM, EXT & Logical model, extensions\\
+ST, SH, OV & Storage binding, shards, overlays\\
+ID, DU, PK, NO & Identity, duplicates, position keys, normalization\\
+IX & Indexes\\
+CL & Client caching and loading\\
+SE & Search\\
+EAS, CTB, VA, FB, MP, IN, CR, RC, SC, ME & Contribution workflow\\
+RP, EV & Rights, governance, evolution\\
+\bottomrule
+\end{longtable}
+
+% =============================================================================
+\clearpage
+\section*{Glossary}
+\addcontentsline{toc}{section}{Glossary}
+Links point to external explanations at the time of writing; they should be re-checked periodically. Terms defined by the project itself are marked \emph{(project term)}.
+
+\begin{description}[style=nextline,leftmargin=0.8cm,itemsep=5pt]
+\gentry{Backgammon}{Two-player board game of dice and strategy; the domain of the database.}{\src{https://en.wikipedia.org/wiki/Backgammon}{Wikipedia: Backgammon}}
+\gentry{Bloom filter}{Compact probabilistic set that answers ``definitely not present'' or ``possibly present''; used to skip shards or files quickly.}{\src{https://en.wikipedia.org/wiki/Bloom_filter}{Wikipedia: Bloom filter}}
+\gentry{Cache API}{Browser API for storing request/response pairs, used by service workers to cache files.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/Cache}{MDN: Cache}}
+\gentry{CC BY}{Creative Commons licence allowing reuse with attribution.}{\src{https://creativecommons.org/licenses/by/4.0/}{Creative Commons: CC BY 4.0}}
+\gentry{CC0}{Creative Commons public-domain dedication, removing restrictions as far as the law allows.}{\src{https://creativecommons.org/publicdomain/zero/1.0/}{Creative Commons: CC0 1.0}}
+\gentry{CORS}{Cross-Origin Resource Sharing: HTTP mechanism letting a page load resources from another origin.}{\src{https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS}{MDN: CORS}}
+\gentry{Crawford rule}{Match rule: when a player first reaches one point from winning, the doubling cube may not be used for the next game.}{\src{https://en.wikipedia.org/wiki/Backgammon}{Wikipedia: Backgammon}}
+\gentry{Delta encoding}{Storing differences between consecutive sorted values instead of the values themselves; makes posting lists small.}{\src{https://en.wikipedia.org/wiki/Delta_encoding}{Wikipedia: Delta encoding}}
+\gentry{DecompressionStream}{Browser API for streaming decompression (gzip, deflate) without extra libraries.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/DecompressionStream}{MDN: DecompressionStream}}
+\gentry{Doubling cube}{Die marked 2--64 used to raise the stake of a game; its value and owner are part of a position.}{\src{https://en.wikipedia.org/wiki/Backgammon}{Wikipedia: Backgammon}}
+\gentry{git-filter-repo}{Tool to rewrite or extract git history, for example to move a folder to a new repository with its history.}{\src{https://github.com/newren/git-filter-repo}{git-filter-repo repository}}
+\gentry{GitHub Actions}{Workflow automation of GitHub, used for validation, ingestion and index building.}{\src{https://docs.github.com/en/actions}{GitHub Docs: Actions}}
+\gentry{GitHub Pages}{Static site hosting from a GitHub repository.}{\src{https://docs.github.com/en/pages}{GitHub Docs: Pages}}
+\gentry{GNU Backgammon}{Free backgammon program and analysis engine; defines the Position ID and Match ID formats.}{\src{https://www.gnu.org/software/gnubg/}{GNU Backgammon}, \src{https://www.gnu.org/software/gnubg/manual/}{manual}}
+\gentry{GNUBGID}{GNU Backgammon identifier: a position ID (80 bits, 14 base-64 characters) and a match ID (66 bits, 12 characters) separated by a colon.}{\src{https://www.gnu.org/software/gnubg/manual/}{GNU Backgammon manual (appendix on IDs)}}
+\gentry{IndexedDB}{Browser database for structured data of significant size.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API}{MDN: IndexedDB API}}
+\gentry{Indexes}{Derived search structures (catalog, text, opening, position) built from shards. \emph{(project term, Section~\ref{sec:indexes})}}{}
+\gentry{Ingestion}{Post-merge process that normalizes inbox files, assigns identifiers and places them into the open shard. \emph{(project term, Section~\ref{sec:ingest})}}{}
+\gentry{Inverted index}{Mapping from terms to the list of records containing them; the basis of text search.}{\src{https://en.wikipedia.org/wiki/Inverted_index}{Wikipedia: Inverted index}}
+\gentry{Jacoby rule}{Money-game rule: gammons and backgammons count only if the cube has been turned.}{\src{https://en.wikipedia.org/wiki/Backgammon}{Wikipedia: Backgammon}}
+\gentry{Jellyfish MAT}{Widespread plain-text format for backgammon matches, produced by the Jellyfish program and supported by many tools, including GNU Backgammon and eXtreme Gammon.}{\src{https://www.gnu.org/software/gnubg/manual/}{GNU Backgammon manual (import/export)}}
+\gentry{JSON Schema}{Vocabulary for validating the structure of JSON documents.}{\src{https://json-schema.org/}{json-schema.org}}
+\gentry{LSM tree}{Log-structured merge tree: write-friendly structure of immutable sorted levels merged over time; a model for generation-based index compaction.}{\src{https://en.wikipedia.org/wiki/Log-structured_merge-tree}{Wikipedia: LSM tree}}
+\gentry{OPFS}{Origin Private File System: fast, private file storage in the browser, suited to large binary data.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system}{MDN: OPFS}}
+\gentry{Overlay}{Small versioned file applied over sealed shards to hide, patch or regroup records without rewriting them. \emph{(project term, Section~\ref{sec:overlays})}}{}
+\gentry{Pip count}{Total number of pips a player needs to bring all checkers home and off; a standard measure of race standing.}{\src{https://en.wikipedia.org/wiki/Backgammon}{Wikipedia: Backgammon}}
+\gentry{Provenance}{Record of the origin and handling of data (source, contributor, importer, rights).}{\src{https://www.w3.org/TR/prov-overview/}{W3C: PROV overview}}
+\gentry{Pull request}{GitHub mechanism proposing changes from a branch or fork for review and merge; the growth path of the database.}{\src{https://docs.github.com/en/pull-requests}{GitHub Docs: Pull requests}}
+\gentry{Registry}{Single JSON file listing all shards, their locations, status and policies. \emph{(project term, Section~\ref{sec:storage})}}{}
+\gentry{Semantic versioning}{Version numbering scheme (major.minor.patch) with compatibility meaning.}{\src{https://semver.org/}{semver.org}}
+\gentry{Serialization profile}{A way of writing the logical model as files (for example \texttt{mat+meta}, \texttt{bgdb-json}). \emph{(project term)}}{}
+\gentry{Service Worker}{Browser script that intercepts network requests, enabling caching and offline use.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API}{MDN: Service Worker API}}
+\gentry{SHA-256}{Cryptographic hash function from the SHA-2 family, used to derive content identifiers.}{\src{https://en.wikipedia.org/wiki/SHA-2}{Wikipedia: SHA-2}}
+\gentry{Shard}{Bounded, self-contained group of matches with its own metadata, files and indexes; open until sealed, then immutable. \emph{(project term, Section~\ref{sec:storage})}}{}
+\gentry{Static site}{Website made of fixed files served as they are, without server-side computation.}{\src{https://en.wikipedia.org/wiki/Static_web_page}{Wikipedia: Static web page}}
+\gentry{Storage binding}{Mapping from logical entities and profiles to locations (registry, base, relative paths). \emph{(project term)}}{}
+\gentry{Trie}{Prefix tree enabling fast prefix lookups, used for type-ahead search and opening sequences.}{\src{https://en.wikipedia.org/wiki/Trie}{Wikipedia: Trie}}
+\gentry{Unicode normalization}{Canonical forms of Unicode text (NFC, NFD) so equal strings compare equal.}{\src{https://unicode.org/reports/tr15/}{Unicode Standard Annex 15}}
+\gentry{Variable-length quantity}{Integer encoding using fewer bytes for small values; used in compact posting lists.}{\src{https://en.wikipedia.org/wiki/Variable-length_quantity}{Wikipedia: Variable-length quantity}}
+\gentry{Web Worker}{Background thread for browser scripts, keeping the interface responsive during heavy work.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API}{MDN: Web Workers API}}
+\gentry{BroadcastChannel}{Browser API for messaging between tabs or workers of the same origin.}{\src{https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel}{MDN: BroadcastChannel}}
+\gentry{XG}{eXtreme Gammon: backgammon analysis program and its proprietary file format; its position ID format is XGID.}{\src{https://www.extremegammon.com/}{eXtreme Gammon}}
+\gentry{XGID}{Compact text identifier of a backgammon position (checkers, cube, dice, score, match settings) defined for eXtreme Gammon.}{\src{https://www.extremegammon.com/xgid.aspx}{XGID specification}}
+\gentry{Zobrist hash}{Hashing technique for board positions using XOR of random numbers assigned to (point, count) features; enables position lookup.}{\src{https://en.wikipedia.org/wiki/Zobrist_hashing}{Wikipedia: Zobrist hashing}}
+\end{description}
+
+\clearpage
+\addcontentsline{toc}{section}{Index}
+\printindex
+
+\end{document}

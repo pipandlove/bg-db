@@ -1,0 +1,11 @@
+{
+  "name": "%%databaseName%%",
+  "license": "CC0-1.0",
+  "repository": "%%repository%%",
+  "defaultBranch": "master",
+  "firstShard": %%firstShard%%,
+  "sealPolicy": { "maxMatches": 5000, "maxMB": 300, "maxAttachmentKB": 2048 },
+  "repoPolicy": { "warnMB": 800, "stopMB": 950 },
+  "closed": false,
+  "capabilities": ["catalog"]
+}

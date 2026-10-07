@@ -1,0 +1,7 @@
+# the tools are checked out here by the workflows; dist/ and the build cache are generated
+tools/
+node_modules/
+dist/
+.bgdb-cache/
+*.log
+.DS_Store

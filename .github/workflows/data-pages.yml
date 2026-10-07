@@ -1,0 +1,52 @@
+# Reusable (decision 0024): called by the "pages" workflow of a data repository. Builds its data/ with the tools at the pinned tag and
+# publishes it on GitHub Pages: registry, shards, catalogs, match files, overlays. The site itself is published by bg-db, which reads every
+# data repository listed in its sources.json.
+name: data-pages
+on:
+  workflow_call:
+    inputs:
+      tools-repository:
+        type: string
+        required: true
+      tools-ref:
+        type: string
+        required: true
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+      - name: The tools, at the pinned tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ inputs.tools-repository }}
+          ref: ${{ inputs.tools-ref }}
+          token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version-file: tools/.node-version
+      - name: Link the workspace of the tools
+        working-directory: tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      # the build cache (decision 0024): matches checked by an earlier run are not read again
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830   # v4.3.0
+        with:
+          path: .bgdb-cache
+          key: bgdb-build-${{ github.run_id }}
+          restore-keys: bgdb-build-
+      - run: node tools/packages/cli/bin/bgdb.js build --data data --out dist --config bgdb.config.json
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b   # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa   # v3.0.1
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e   # v4.0.5

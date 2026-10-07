@@ -1,0 +1,31 @@
+name: Submit a match
+description: Paste a match transcript. A bot checks it and opens a pull request.
+title: "Match: "
+labels: ["submission"]
+body:
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Match transcript
+      description: Paste the text of the match (.mat / .txt from OpenGammon, Foxamon, Backgammon Studio, or GNU Backgammon SGF).
+    validations:
+      required: true
+  - type: input
+    id: event
+    attributes:
+      label: Event or site (optional)
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: Rights
+      options:
+        - label: I have the right to share this under the CC0 public-domain dedication.
+          required: true
+  - type: checkboxes
+    id: partial
+    attributes:
+      label: Partial match
+      description: If some games of the match cannot be read, the rest can still be added, with those games kept by their result only or left out. You will be shown what would be kept first.
+      options:
+        - label: Add it partially if some games cannot be read.
+          required: false

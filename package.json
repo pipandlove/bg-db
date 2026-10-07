@@ -1,0 +1,28 @@
+{
+  "name": "bg-db",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Open, federated, static backgammon game database - tooling and site",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --test \"packages/*/test/*.test.js\" \"scripts/*.test.js\"",
+    "check": "node packages/cli/bin/bgdb.js check fixtures --recursive",
+    "serve": "node packages/cli/bin/bgdb.js serve dist",
+    "update": "node scripts/update-from-zip.mjs",
+    "archive": "node scripts/archive.mjs",
+    "new-data-repo": "node scripts/data-repos.mjs new",
+    "publish-data-repo": "node scripts/data-repos.mjs publish",
+    "switch-data-repo": "node scripts/data-repos.mjs switch",
+    "spec-index": "node scripts/spec-index.mjs",
+    "ingest": "node packages/cli/bin/bgdb.js ingest",
+    "build": "node packages/cli/bin/bgdb.js build",
+    "bgdb": "node packages/cli/bin/bgdb.js"
+  },
+  "license": "MIT"
+}

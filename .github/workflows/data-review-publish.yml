@@ -1,0 +1,95 @@
+# Reusable (decision 0024): called by the "review-publish" workflow of a data repository, after its "validate" has run.
+# Posts the review of a pull request (comment, labels) and turns on auto-merge when the review says it is safe.
+#
+# Why a second workflow: a pull request from a fork gets a read-only token, so it cannot comment. This workflow runs in the context of the
+# base repository (with a write token) after "validate" has run. Safety (spec SC-01): it never trusts anything produced by the pull request.
+# It redoes the review itself, with the tools of bg-db at the pinned tag and the configuration of the default branch, on the pull request's
+# files read as data. Nothing from pr/ is ever executed.
+#
+# Settings needed (new-data-repo sets them, see docs/contributing-flow.md): "Allow auto-merge"; a branch rule on master requiring "validate / validate".
+name: data-review-publish
+on:
+  workflow_call:
+    inputs:
+      tools-repository:
+        type: string
+        required: true
+      tools-ref:
+        type: string
+        required: true
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+jobs:
+  publish:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: The configuration, from the default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          path: base
+          sparse-checkout: bgdb.config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: The tools, at the pinned tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ inputs.tools-repository }}
+          ref: ${{ inputs.tools-ref }}
+          token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
+          path: tools
+          persist-credentials: false
+      - name: The pull request's files (data only, never executed)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version-file: tools/.node-version
+      - name: Link the workspace of the tools
+        working-directory: tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Find the pull request and read its description
+        run: |
+          PR=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '.[0].number')
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then echo "no pull request for $HEAD_SHA"; exit 0; fi
+          echo "PR=$PR" >> "$GITHUB_ENV"
+          gh pr view "$PR" -R "$REPO" --json body,author,authorAssociation > pr.json
+          jq -r '.body // ""' pr.json > pr-body.md
+          jq -r '.author.login' pr.json > author.txt
+          gh pr diff "$PR" -R "$REPO" --name-only > changed.txt
+          case "$(jq -r '.authorAssociation' pr.json)" in FIRST_TIME_CONTRIBUTOR|FIRST_TIMER) echo "WELCOME=--welcome" >> "$GITHUB_ENV";; esac
+      - name: Review
+        if: env.PR != ''
+        run: |
+          node tools/packages/cli/bin/bgdb.js review \
+            --inbox pr/inbox --data pr/data --config base/bgdb.config.json \
+            --changed changed.txt --body pr-body.md --author "$(cat author.txt)" $WELCOME \
+            --report report.json --comment comment.md || true
+      - name: Comment (one comment, updated in place)
+        if: env.PR != ''
+        run: |
+          ID=$(gh api "repos/$REPO/issues/$PR/comments" --jq '[.[] | select(.body | startswith("<!-- bgdb-review -->"))][0].id // empty')
+          if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@comment.md >/dev/null
+          else gh pr comment "$PR" -R "$REPO" --body-file comment.md; fi
+      - name: Labels
+        if: env.PR != ''
+        run: |
+          for L in ready auto-merge needs-fix needs-review needs-confirmation partial duplicate enrichment bulk closed; do gh label create "$L" -R "$REPO" --force >/dev/null 2>&1 || true; done
+          WANT=$(jq -r '.labels[]' report.json)
+          for L in ready auto-merge needs-fix needs-review needs-confirmation partial duplicate enrichment bulk closed; do
+            if echo "$WANT" | grep -qx "$L"; then gh pr edit "$PR" -R "$REPO" --add-label "$L" >/dev/null; else gh pr edit "$PR" -R "$REPO" --remove-label "$L" >/dev/null 2>&1 || true; fi
+          done
+      - name: Auto-merge when the review says it is safe
+        if: env.PR != ''
+        run: |
+          if [ "$(jq -r '.autoMerge' report.json)" = "true" ]; then gh pr merge "$PR" -R "$REPO" --auto --squash; fi

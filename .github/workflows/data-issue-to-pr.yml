@@ -1,0 +1,75 @@
+# Reusable (decision 0024): called by the "issue-to-pr" workflow of a data repository.
+# "Paste a match": an issue made with the "Submit a match" form becomes a pull request that adds the match to inbox/.
+# The text of the issue is untrusted data: it is read from an environment variable (never put into a shell command), checked by the tools
+# at the pinned tag with the configuration of the default branch, and written to a file named after the issue number.
+#
+# A pull request created with the default token does not start other workflows (GitHub rule), so "validate" would not run on it.
+# Create a fine-grained token with "Contents", "Issues" and "Pull requests" write access on the data repository and store it there as the
+# secret BGDB_BOT_TOKEN: it is used when present (the calling workflow passes its secrets with "secrets: inherit"). docs/data-repositories.md, section 3.
+name: data-issue-to-pr
+on:
+  workflow_call:
+    inputs:
+      tools-repository:
+        type: string
+        required: true
+      tools-ref:
+        type: string
+        required: true
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+jobs:
+  convert:
+    if: contains(github.event.issue.labels.*.name, 'submission')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.BGDB_BOT_TOKEN || github.token }}
+      REPO: ${{ github.repository }}
+      NUMBER: ${{ github.event.issue.number }}
+      AUTHOR: ${{ github.event.issue.user.login }}
+      AUTHOR_ID: ${{ github.event.issue.user.id }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          token: ${{ secrets.BGDB_BOT_TOKEN || github.token }}
+      - name: The tools, at the pinned tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ inputs.tools-repository }}
+          ref: ${{ inputs.tools-ref }}
+          token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version-file: tools/.node-version
+      - name: Link the workspace of the tools
+        working-directory: tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Read the match from the issue
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          printf '%s' "$ISSUE_BODY" > "$RUNNER_TEMP/issue.md"
+          node tools/packages/cli/bin/bgdb.js from-issue --body "$RUNNER_TEMP/issue.md" --number "$NUMBER" --result "$RUNNER_TEMP/result.json" || true
+      - name: Answer on the issue (one comment, updated in place)
+        run: |
+          jq -r '.comment' "$RUNNER_TEMP/result.json" > "$RUNNER_TEMP/comment.md"
+          ID=$(gh api "repos/$REPO/issues/$NUMBER/comments" --jq '[.[] | select(.body | startswith("<!-- bgdb-review -->"))][0].id // empty')
+          if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
+          else gh issue comment "$NUMBER" --body-file "$RUNNER_TEMP/comment.md"; fi
+      - name: Open or update the pull request
+        run: |
+          if [ "$(jq -r '.ok' "$RUNNER_TEMP/result.json")" != "true" ]; then exit 0; fi
+          BRANCH="submission/issue-$NUMBER"
+          git checkout -B "$BRANCH"
+          git add "inbox/issue-$NUMBER.txt"
+          git -c user.name="$AUTHOR" -c user.email="${AUTHOR_ID}+${AUTHOR}@users.noreply.github.com" commit -m "Add the match of issue #$NUMBER"
+          git push --force origin "$BRANCH"
+          printf 'Closes #%s\n\n- [x] I have the right to share this match under the CC0 public-domain dedication (confirmed by @%s in the issue form).\n' "$NUMBER" "$AUTHOR" > "$RUNNER_TEMP/pr-body.md"
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')" ]; then
+            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" --title "Add the match of issue #$NUMBER" --body-file "$RUNNER_TEMP/pr-body.md"
+          fi

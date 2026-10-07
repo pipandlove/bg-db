@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>BGDB</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main" data-skip>Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <h1 id="site-name"><a href="./">BGDB</a></h1>
+      <p id="site-tagline" class="muted">Open backgammon matches: search, download, replay. <strong>Search</strong> · <a href="contribute.html">Contribute</a></p>
+    </div>
+  </header>
+  <main id="main" class="wrap" tabindex="-1">
+    <p id="loading" role="status">Loading the database…</p>
+    <noscript><p class="notice">This site needs JavaScript to search the database.</p></noscript>
+    <div id="app" hidden></div>
+  </main>
+  <footer id="footer" class="wrap site-footer"></footer>
+</body>
+</html>

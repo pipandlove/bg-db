@@ -1,0 +1,13 @@
+{
+  "name": "%%name%%",
+  "private": true,
+  "description": "Matches of %%databaseName%%: one data repository of %%toolsRepository%% (decision 0024)",
+  "scripts": {
+    "bgdb": "node ../bg-db/packages/cli/bin/bgdb.js",
+    "check": "node ../bg-db/packages/cli/bin/bgdb.js review",
+    "ingest": "node ../bg-db/packages/cli/bin/bgdb.js ingest",
+    "build": "node ../bg-db/packages/cli/bin/bgdb.js build --site ../bg-db/site",
+    "serve": "node ../bg-db/packages/cli/bin/bgdb.js serve dist"
+  },
+  "license": "CC0-1.0"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@bg-db/core",
+  "version": "0.3.0",
+  "description": "BGDB core: logical model, parsers, rules, validation, identity (no dependencies, browser + Node)",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*.js"
+  },
+  "license": "MIT"
+}

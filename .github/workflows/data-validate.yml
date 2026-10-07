@@ -1,0 +1,63 @@
+# Reusable (decision 0024): called by the "validate" workflow of a data repository, for a pull request that adds matches.
+# Read-only: this is the status check ("validate / validate") that the branch rule of the data repository requires.
+#
+# Safety (spec SC-01): the pull request is only DATA here. The tools that run come from bg-db at the tag the data repository pins
+# (tools/), and the configuration from the base branch of the data repository (base/), never from the pull request, so a pull request
+# cannot change how it is checked. The token is read-only; BGDB_TOOLS_TOKEN, when set, only reads the tools while bg-db is private.
+name: data-validate
+on:
+  workflow_call:
+    inputs:
+      tools-repository:
+        description: the repository of the tools ("owner/bg-db")
+        type: string
+        required: true
+      tools-ref:
+        description: the tag of the tools, the same as the one after "@" in the calling workflow
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The pull request (data only)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          path: pr
+          fetch-depth: 2
+          persist-credentials: false
+      - name: The configuration, from the base branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          sparse-checkout: bgdb.config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: The tools, at the pinned tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ inputs.tools-repository }}
+          ref: ${{ inputs.tools-ref }}
+          token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version-file: tools/.node-version
+      - name: Link the workspace of the tools (no dependency is downloaded)
+        working-directory: tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Review
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          printf '%s' "$PR_BODY" > pr-body.md
+          git -C pr diff --name-only HEAD^1 HEAD > changed.txt
+          node tools/packages/cli/bin/bgdb.js review \
+            --inbox pr/inbox --data pr/data --config base/bgdb.config.json \
+            --changed changed.txt --body pr-body.md --author "$PR_AUTHOR" \
+            --report report.json --comment comment.md

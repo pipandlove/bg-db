@@ -1,0 +1,28 @@
+> [bg-db](README.md) · [Documentation](docs/README.md)
+
+# Contributing
+
+**The short version:** give us a match file, we do the rest.
+
+The easiest way: open the **Contribute** page of the site (`contribute.html`), drop your files, and follow the three steps it shows. Or do it by hand:
+
+1. **Have a match file?** (`.mat` or `.txt` from Backgammon Studio, OpenGammon, Foxamon, eXtreme Gammon, choue.net and others, or a GNU Backgammon `.sgf`; an `.xg` can be added next to its text version.)
+2. Put it in the `inbox/` folder of the **current data repository** (the matches live there, not in `bg-db`: the one marked `current` in `sources.json`; the Contribute page knows which) and open a pull request. Any file name works; if you also have the GNU Backgammon `.sgf` (with analysis) or the eXtreme Gammon `.xg` of the same match, give all the files the **same name** (`my-match.txt`, `my-match.sgf`, `my-match.xg`) and they are kept together. To add a YouTube link, put `; [Video "https://youtu.be/..."]` at the top of the text file (https YouTube links only). If the match contains a play that was made although illegal, keep it as played and declare it (see [docs/formats](docs/formats/README.md#illegal-plays-made-in-real-matches)): it is kept and flagged, not rejected. You do not need to fill in metadata or
+   know how the database is organised: a bot checks the match, tells you in plain words what
+   (if anything) is wrong, and merges clean submissions automatically. If the file does not say which event or round it is (or
+   several matches of a series would look the same), you can add `my-match.bgdb.json` with `{"event": "...", "round": "Final - Match 3"}`
+   ([details](docs/contributing-flow.md)).
+3. By submitting you confirm that you have the right to share the match under the database licence, **CC0** (public domain; see [DATA-LICENSE.md](DATA-LICENSE.md)). Player handles are kept as they are; site match identifiers are removed (`bgdb anonymize`).
+
+You can also check a file yourself before sending it: `node packages/cli/bin/bgdb.js check my-match.mat`; `npm run check` in a data repository says what the bot will say about its `inbox/`.
+
+**If some games of a match cannot be read** (a mistyped move, a missing play), you are told what is wrong, so you can fix it. If the rest of the match is clear, you are
+also offered to add it **partially**: the games that cannot be read are kept by their result only, or left out. You see the match exactly as it would be stored
+(a `.mat` file: download it on the Contribute page, or `bgdb check --salvage --out preview my-match.txt`) and nothing is added until you agree: tick "Add it partially"
+on the page or in the issue form, or put `{"accept": "partial"}` in `my-match.bgdb.json` in a pull request.
+
+What happens next: a bot checks your pull request within minutes, posts one comment (what is new, what is already there, what to fix), and merges it automatically if everything is fine. The first time you contribute, GitHub may ask a maintainer to approve the check run; that is normal. Details: [docs/contributing-flow.md](docs/contributing-flow.md).
+
+For code changes (pull requests to `bg-db` itself): `npm test` must pass; new behaviour needs a test, preferably with a real (small) fixture.
+Larger changes to the data model or the workflow start as a short proposal in `docs/rfcs/`
+(see [docs/spec/12-evolution.md](docs/spec/12-evolution.md)).

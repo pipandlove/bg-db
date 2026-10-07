@@ -1,0 +1,20 @@
+# After a merge: file the matches of inbox/ into the open shard of data/, one run at a time (spec IN-01).
+name: ingest
+on:
+  push:
+    branches: [master]
+    paths: ['inbox/**']
+permissions:
+  contents: write
+  issues: write
+  actions: write
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+jobs:
+  ingest:
+    uses: %%toolsRepository%%/.github/workflows/data-ingest.yml@%%toolsRef%%
+    with:
+      tools-repository: %%toolsRepository%%
+      tools-ref: %%toolsRef%%
+    secrets: inherit

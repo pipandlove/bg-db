@@ -1,0 +1,8 @@
+{
+  "name": "BGDB",
+  "license": "CC0-1.0",
+  "repository": "pipandlove/bg-db",
+  "defaultBranch": "master",
+  "sealPolicy": { "maxMatches": 5000, "maxMB": 300, "maxAttachmentKB": 2048 },
+  "capabilities": ["catalog"]
+}

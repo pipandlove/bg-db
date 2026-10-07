@@ -1,0 +1,73 @@
+# Reusable (decision 0024): called by the "ingest" workflow of a data repository after a merge.
+# Files the matches of inbox/ into the open shard of data/ (and seals full shards), then commits the result.
+# Runs on the default branch only, one at a time (spec IN-01, the concurrency group is set by the caller), with the tools at the pinned tag.
+name: data-ingest
+on:
+  workflow_call:
+    inputs:
+      tools-repository:
+        type: string
+        required: true
+      tools-ref:
+        type: string
+        required: true
+permissions:
+  contents: write
+  issues: write
+  actions: write
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+      - name: The tools, at the pinned tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          repository: ${{ inputs.tools-repository }}
+          ref: ${{ inputs.tools-ref }}
+          token: ${{ secrets.BGDB_TOOLS_TOKEN || github.token }}
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version-file: tools/.node-version
+      - name: Link the workspace of the tools
+        working-directory: tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Ingest
+        env:
+          CONTRIBUTOR: ${{ github.event.head_commit.author.username || github.actor }}
+        run: node tools/packages/cli/bin/bgdb.js ingest --contributor "$CONTRIBUTOR" --date "$(date -u +%F)" --report "$RUNNER_TEMP/ingest-report.json"
+      - name: Commit
+        env:
+          CONTRIBUTOR: ${{ github.event.head_commit.author.username || github.actor }}
+        run: |
+          git config user.name "bgdb-bot"
+          git config user.email "bgdb-bot@users.noreply.github.com"
+          git add -A data inbox
+          if git diff --cached --quiet; then echo "nothing to commit"; else
+            git commit -m "ingest: matches added by $CONTRIBUTOR"
+            git push
+          fi
+      # decision 0024: one issue, updated at each run, when the repository nears its size limit or matches wait for the next repository
+      - name: Size of the repository
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          R="$RUNNER_TEMP/ingest-report.json"
+          if [ ! -f "$R" ]; then exit 0; fi
+          if [ "$(jq -r '.repo.state' "$R")" = "ok" ] && [ "$(jq -r '.waiting' "$R")" = "0" ]; then exit 0; fi
+          jq -r '"This data repository is at \(.repo.mb) MB (data \(.repo.dataMB) MB, git \(.repo.gitMB // "unknown") MB): warning at \(.repo.warnMB) MB, stop at \(.repo.stopMB) MB.\n\n"
+            + (if .repo.state == "stop" then "**Nothing more is added here.** " else "" end)
+            + (if .waiting > 0 then "\(.waiting) match(es) wait in inbox/ for the next data repository. " else "" end)
+            + "Prepare the next data repository: `npm run new-data-repo` in bg-db (docs/growing.md, decision 0024)."' "$R" > "$RUNNER_TEMP/size.md"
+          gh label create repository-size --force >/dev/null 2>&1 || true
+          N=$(gh issue list --label repository-size --state open --json number --jq '.[0].number // empty')
+          if [ -n "$N" ]; then gh issue edit "$N" --body-file "$RUNNER_TEMP/size.md" >/dev/null; else gh issue create --title "Prepare the next data repository" --label repository-size --body-file "$RUNNER_TEMP/size.md"; fi
+      # a push made with the workflow token starts no workflow (GitHub rule), so the site is published by asking for it; new-data-repo sets the variable when Pages is on
+      - name: Publish the data
+        if: vars.PUBLISH_AFTER_INGEST == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml

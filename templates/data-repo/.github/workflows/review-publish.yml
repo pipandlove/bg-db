@@ -1,0 +1,20 @@
+# After "validate": the bot's comment, the labels, and auto-merge when the review says it is safe (decision 0015).
+name: review-publish
+on:
+  workflow_run:
+    workflows: [validate]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+concurrency:
+  group: review-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+jobs:
+  publish:
+    uses: %%toolsRepository%%/.github/workflows/data-review-publish.yml@%%toolsRef%%
+    with:
+      tools-repository: %%toolsRepository%%
+      tools-ref: %%toolsRef%%
+    secrets: inherit
