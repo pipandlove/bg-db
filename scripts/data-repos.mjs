@@ -27,7 +27,7 @@ import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHas
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v8';
+export const DEFAULT_TOOLS_REF = 'v9';
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
 /** run a program; the tests replace it to answer for gh */

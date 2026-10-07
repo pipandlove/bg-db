@@ -68,11 +68,14 @@ jobs:
             git commit -m "ingest: matches added by $CONTRIBUTOR"
             git push
           fi
-      # the answer to the contributor: on the merged pull request, and on the issue it came from (which the merge closed)
+      # the answer to the contributor: on the merged pull request, and on the issue it came from (which the merge closed). With BGDB_BOT_TOKEN:
+      # the workflow's own token may not comment on a pull request ("Resource not accessible by integration"). A failed answer never stops
+      # the publication of the data below.
       - name: Tell the contributor
         if: env.PR != ''
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BGDB_BOT_TOKEN || github.token }}
           REPO: ${{ github.repository }}
         run: |
           if [ ! -s "$RUNNER_TEMP/ingest-comment.md" ]; then exit 0; fi

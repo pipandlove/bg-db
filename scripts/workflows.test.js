@@ -125,7 +125,7 @@ test('ingest: only on the default branch, one run at a time, never cancelled, co
   assert.match(t, /\[ "\$\(jq -r '\.head\.repo\.full_name' "\$RUNNER_TEMP\/pr\.json"\)" = "\$REPO" \] && \[\[ "\$HEAD" =~ \^submission\/issue-\(\[0-9\]\+\)\$ \]\]/);
   assert.match(t, /case "\$C" in \*\[!A-Za-z0-9-\]\*\|''\) C="\$ACTOR" ;; esac/, 'only a GitHub login goes into GITHUB_ENV');
   assert.match(t, /--comment "\$RUNNER_TEMP\/ingest-comment\.md"/);
-  assert.match(t, /- name: Tell the contributor\n\s+if: env\.PR != ''/);
+  assert.match(t, /- name: Tell the contributor\n\s+if: env\.PR != ''\n\s+continue-on-error: true\n\s+env:\n\s+GH_TOKEN: \$\{\{ secrets\.BGDB_BOT_TOKEN \|\| github\.token \}\}/, 'the workflow token may not comment on a pull request; a failed answer does not stop the publication');
 });
 
 test('issue-to-pr: only for issues labelled "submission", the issue text only through an environment variable, one pull request per issue', () => {
