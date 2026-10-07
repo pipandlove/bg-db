@@ -311,11 +311,11 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bg-db` (`../<name>`); commits there use the git identity of the `bg-db` repository. Both change
 `sources.json` without committing it: review it and commit it in `bg-db`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v3] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v4] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bg-db` at the tag `--tools-ref`, `bgdb.config.json` with
-`firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows auto-merge, creates the label `submission`, turns Pages on
-(and sets `PUBLISH_AFTER_INGEST`), requires the check `validate / validate` on `master`, and, while `bg-db` is private, lets its workflows be called. It lists the new
+`firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
+(and sets `PUBLISH_AFTER_INGEST`, and publishes it once), and, while `bg-db` is private, lets its workflows be called. It sets no branch rule: the bot's review decides the merge. It lists the new
 repository in `sources.json` as `current` if it is the first, else `next` (nothing changes for contributors yet). If the GitHub part stops half way, the folder and
 `sources.json` are kept, and `publish-data-repo` finishes it.
 
@@ -323,13 +323,13 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bg-db-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v3` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v3`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v4` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v4`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |
 | `--dry-run` | print the steps, do nothing |
 
-A GitHub setting that is refused (Pages or a branch rule on a private repository of a free plan) is a warning that says what to do by hand, not a failure.
+A GitHub setting that is refused (Pages on a private repository of a free plan) is a warning that says what to do by hand, not a failure.
 Secrets cannot be made for you: the output warns about `BGDB_BOT_TOKEN` (pull requests made from issues) and, while `bg-db` is private, `BGDB_TOOLS_TOKEN`
 when they are missing ([data-repositories.md](data-repositories.md#3-the-two-secrets)).
 

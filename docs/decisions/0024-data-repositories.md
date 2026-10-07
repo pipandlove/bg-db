@@ -64,7 +64,7 @@ added; the matches merged after that stay in `inbox/`, nothing is lost, and the 
 **4. Starting a new data repository.** The maintainer runs `npm run new-data-repo -- bg-db-data-2`. It makes `../bg-db-data-2` from `templates/data-repo/`
 (workflows pinned to the tools' tag, `bgdb.config.json`, README, CONTRIBUTING, the issue form) with `firstShard` (the last shard number used, plus one: `0007`),
 commits it with the git identity of `bg-db`, and, with the maintainer's `gh` login, creates the repository and pushes, turns on Pages (source: GitHub Actions),
-sets the branch rule that requires the check `validate / validate`, allows auto-merge, and adds the repository to `sources.json` in `bg-db` as `next`. The new
+allows squash merging (no branch rule: the bot's review decides the merge, see below), and adds the repository to `sources.json` in `bg-db` as `next`. The new
 repository is empty; nothing has changed for contributors yet.
 
 **5. Moving to the first shard of the new repository.** The trigger is the maintainer's decision, not a size: once `bg-db-data-2` exists, they run
@@ -123,7 +123,10 @@ attachments shards seal at 300 MB, so about 3 shards (roughly 10 000 matches). S
   - Local work: a data repository is checked out next to `bg-db`; its `package.json` runs the tools of `../bg-db`, and its `npm run build` includes the site.
   - `bg-db` keeps no `data/` nor `inbox/` (shard `0001` was still empty, so nothing had to be copied), and publishes the site with `sources.json`, which the first
     `new-data-repo` writes.
-- While the repositories are private, Pages and branch rules need a paid GitHub plan, and the data repositories read the tools with a token
+- The data repositories have **no branch rule** (2026-10-07, tools `v4`): a rule requiring the `validate` check refused the ingest's own commits to
+  `master`. review-publish merges a pull request itself when its review says `ready`, only the commit it checked (`--match-head-commit`), with
+  `BGDB_BOT_TOKEN` so that the merge starts the ingest. Only people with write access can merge by hand.
+- While the repositories are private, Pages needs a paid GitHub plan, and the data repositories read the tools with a token
   (`BGDB_TOOLS_TOKEN`); until then a data repository can be made with `--local` and put on GitHub later with `publish-data-repo`.
 - The contribution address changes at each switch; contributors who use the Contribute page do not notice, those who send pull requests by hand are told by the
   bot of the closed repository.

@@ -1,5 +1,5 @@
 # Checks a pull request that adds matches, with the tools of %%toolsRepository%% at %%toolsRef%% (decision 0024).
-# Its check, "validate / validate", is the one the branch rule of master requires.
+# Its result is the check "validate / validate" on the pull request; review-publish runs after it.
 name: validate
 on:
   pull_request:

@@ -73,7 +73,7 @@ test('validate: a read-only pull_request workflow, the tools at the pinned tag, 
   const c = caller('validate.yml');
   assert.match(c, /^on:\n  pull_request:/m);
   assert.match(c, /permissions:\n  contents: read/);
-  assert.match(c, /^jobs:\n  validate:\n/m, 'the check is "validate / validate", the one new-data-repo requires');
+  assert.match(c, /^jobs:\n  validate:\n/m, 'the check is named "validate / validate"');
   const t = read('data-validate.yml');
   for (const x of [c, t]) assert.ok(!x.includes('pull_request_target'));
   assert.match(t, /permissions:\n  contents: read/);
@@ -96,8 +96,9 @@ test('review-publish: runs after validate in the context of the base repository,
   const prCheckout = t.slice(t.indexOf("The pull request's files"), t.indexOf('actions/setup-node'));
   assert.match(prCheckout, /persist-credentials: false/);
   assert.match(prCheckout, /head_sha/);
-  assert.match(t, /gh pr merge "\$PR" -R "\$REPO" --auto --squash/);
-  assert.match(t, /- name: Auto-merge when the review says it is safe\n\s+if: env\.PR != ''\n\s+env:\n\s+GH_TOKEN: \$\{\{ secrets\.BGDB_BOT_TOKEN \|\| github\.token \}\}/, 'the merge is made with the bot token, so that its push starts the ingest');
+  assert.match(t, /gh pr merge "\$PR" -R "\$REPO" --squash --match-head-commit "\$HEAD_SHA"/, 'merged only as reviewed: not a commit pushed after the review');
+  assert.ok(!/--auto\b/.test(t), 'no auto-merge: it needs a branch rule, which would also refuse the ingest\'s commits');
+  assert.match(t, /- name: Merge when the review says it is safe\n\s+if: env\.PR != ''\n\s+env:\n\s+GH_TOKEN: \$\{\{ secrets\.BGDB_BOT_TOKEN \|\| github\.token \}\}/, 'the merge is made with the bot token, so that its push starts the ingest');
   for (const m of t.matchAll(/gh (?:pr|label) [a-z]+ [^\n]*/g)) assert.match(m[0], /-R "\$REPO"/, `the workspace is not a checkout of the repository: ${m[0]}`);
   assert.ok(!/gh pr view [^\n]*authorAssociation/.test(t), '"gh pr view --json" has no authorAssociation: the REST API is read instead');
   assert.match(t, /gh api "repos\/\$REPO\/pulls\/\$PR" > pr\.json[\s\S]*jq -r '\.author_association' pr\.json/);

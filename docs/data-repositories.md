@@ -47,11 +47,10 @@ While the project stays private (decision 0006), the GitHub plan matters. GitHub
 |---|---|---|---|
 | Workflows run (`validate`, `ingest`, ...) | yes (a monthly quota of minutes) | yes | yes |
 | Pages (the published data and site) | **no** | yes | yes |
-| Branch rule (the required check), so **auto-merge** | **no** | yes | yes |
 | Who sees the matches | you | you | everyone |
 
 On a private repository of a free plan, the commands still work: what GitHub refuses becomes a warning, and the rest is done. Without Pages there is no
-published site, and without the branch rule you merge pull requests by hand. Nothing is lost: once the plan or the visibility changes, run
+published site. Nothing is lost: once the plan or the visibility changes, run
 `npm run publish-data-repo -- <name>` again and it sets what is missing.
 
 ### 1.3 The git identity of `bg-db`
@@ -182,8 +181,8 @@ What `new-data-repo` and `publish-data-repo` set on GitHub. Each line says why, 
 
 | Setting | Why | Where (github.com, in the data repository unless said) |
 |---|---|---|
-| Allow **auto-merge** and **squash merging**, delete branches after merge | the bot merges a clean pull request by itself; the squash commit carries the contributor's name, which is how the contributor is recorded | Settings > General > Pull Requests |
-| A **branch rule** on `master` requiring the check **`validate / validate`** (no required review) | a pull request can be merged only once the check has passed; auto-merge waits for it. A required review would make auto-merge wait for a person | Settings > Branches (or Rules > Rulesets) > Add rule, branch `master`, "Require status checks to pass", search `validate`. The check appears in the list only after it has run once |
+| Allow **squash merging**, delete branches after merge | the bot merges a clean pull request by itself, as one commit that carries the contributor's name (which is how the contributor is recorded) | Settings > General > Pull Requests |
+| **No branch rule** on `master` | the bot's review decides the merge (right after `validate`, only the commit it checked), and the ingest commits to `master` after it: a rule requiring a check would refuse those commits ("GH006: Protected branch update failed"). Only people with write access (you) can merge by hand | Settings > Branches: no rule for `master` (remove one if it is there) |
 | The label **`submission`** | the "Submit a match" issue form puts it on new issues, and the issue workflow acts only on issues that have it | Issues > Labels (`gh label create submission -R ...`) |
 | **Pages**, source GitHub Actions | the data repository publishes its `data/` (registry, shards) for the site to read | Settings > Pages > Build and deployment > Source: GitHub Actions |
 | The variable **`PUBLISH_AFTER_INGEST`** = `true` | the data is published again after each ingest (set only when Pages is on) | Settings > Secrets and variables > Actions > Variables |
@@ -254,6 +253,7 @@ The tags so far:
 | `v1` | 2026-10-07 | the first release |
 | `v2` | 2026-10-07 | review-publish reads the pull request through the REST API (it failed with "Unknown JSON field: authorAssociation"); issue-to-pr says on the issue when it cannot open the pull request |
 | `v3` | 2026-10-07 | review-publish turns on auto-merge with `BGDB_BOT_TOKEN`, so that the merge starts the ingest. A data repository moving to `v3` also adds `workflow_dispatch:` to its `ingest.yml` (the template has it: "Run workflow" by hand) |
+| `v4` | 2026-10-07 | review-publish merges the pull request itself (only the commit it checked) instead of turning on auto-merge, so the data repository needs no branch rule, which refused the ingest's commits. A data repository moving to `v4` removes its branch rule on `master` |
 
 ## 8. The next data repository, and the switch
 
@@ -294,11 +294,11 @@ Corrections and enrichments of a match of an archived repository are written in 
 | `has changes that are not committed` | commit or remove them in that repository |
 | `git push` refused: "refusing to allow an OAuth App to create or update workflow" | the `workflow` scope: `gh auth refresh -s workflow` |
 | a workflow fails at "The tools, at the pinned tag" | the secret `BGDB_TOOLS_TOKEN` (bg-db private), the tag missing on GitHub, or the token expired |
-| `validate / validate` cannot be chosen in the branch rule | it is listed only after it has run once: open a test pull request first |
+| the ingest fails: "GH006: Protected branch update failed ... Required status check" | a branch rule on `master` (section 4: there should be none): `gh api -X DELETE repos/pipandlove/bg-db-data-1/branches/master/protection`, then run the ingest again |
 | the `issue-to-pr` workflow fails: "GitHub Actions is not permitted to create or approve pull requests" | the secret `BGDB_BOT_TOKEN` is missing (section 3). The match is already on the branch `submission/issue-<n>`: once the secret is set, run the workflow again (`gh run rerun <run id> -R pipandlove/bg-db-data-1`, or edit the issue), and it opens the pull request |
 | pull requests made from issues have no check | the secret `BGDB_BOT_TOKEN` |
 | a pull request was merged, but its matches stay in `inbox/` (no ingest run) | the merge was made with GitHub's own token, whose pushes start no workflow: set `BGDB_BOT_TOKEN` (and use tools `v3` or later), then run the ingest once by hand: `gh workflow run ingest.yml -R pipandlove/bg-db-data-1` |
 | GitHub's upload page says "Uploads are disabled" | uploads need write access, so contributors upload into their own copy (fork): the Contribute page leads them there once they type their GitHub name. The owner cannot fork their own repository and `master` is protected: add matches with git (section 6) |
-| warnings about Pages or the branch rule, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
+| a warning about Pages, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
 | the site or the Contribute page: "The database could not be loaded (https://.../bg-db-data-1/registry.json: HTTP 404)" | the data repository was never published: its `pages` workflow runs on a push that changes `data/`, and a new repository has none. Run it once: `gh workflow run pages.yml -R pipandlove/bg-db-data-1` (or Actions > pages > Run workflow); also check that Pages is on (section 4) |
 | a workflow of the data repository failed after 0 s, "a workflow file issue" | it called `bg-db` at a tag that did not exist yet (section 1.4); once the tag is pushed, the next run works |

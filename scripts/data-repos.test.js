@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newDataRepo, publishDataRepo, switchDataRepo, spawnRun, parseArgs, REQUIRED_CHECK } from './data-repos.mjs';
+import { newDataRepo, publishDataRepo, switchDataRepo, spawnRun, parseArgs } from './data-repos.mjs';
 import { main } from '../packages/cli/src/cli.js';
 import { FIXTURES } from '../packages/core/test/helpers.js';
 
@@ -76,13 +76,13 @@ test('new-data-repo, the first one: made from the template, committed with the i
   assert.deepEqual([cfg.firstShard, cfg.repository, cfg.closed, cfg.name], [1, 'owner/bg-db-data-1', false, 'BGDB']);
   for (const f of ['validate', 'review-publish', 'ingest', 'issue-to-pr', 'pages']) {
     const t = w.read('bg-db-data-1', `.github/workflows/${f}.yml`);
-    assert.match(t, /uses: owner\/bg-db\/\.github\/workflows\/data-[a-z-]+\.yml@v3\n {4}with:\n {6}tools-repository: owner\/bg-db\n {6}tools-ref: v3\n/, f);
+    assert.match(t, /uses: owner\/bg-db\/\.github\/workflows\/data-[a-z-]+\.yml@v4\n {4}with:\n {6}tools-repository: owner\/bg-db\n {6}tools-ref: v4\n/, f);
   }
   for (const f of ['README.md', 'CONTRIBUTING.md', 'DATA-LICENSE.md', 'inbox/README.md', '.github/ISSUE_TEMPLATE/submit-match.yml', '.github/PULL_REQUEST_TEMPLATE.md', 'package.json', '.gitignore']) {
     assert.ok(!w.read('bg-db-data-1', f).includes('%%'), `${f}: a placeholder is left`);
   }
   assert.match(w.read('bg-db-data-1', 'README.md'), /publishes them at <https:\/\/owner\.github\.io\/bg-db-data-1\/>[\s\S]*Shards start at `0001`/);
-  assert.equal(w.git('bg-db-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bg-db-data-1, from the template of owner/bg-db@v3');
+  assert.equal(w.git('bg-db-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bg-db-data-1, from the template of owner/bg-db@v4');
   assert.equal(w.git('bg-db-data-1', 'status', '--porcelain'), '');
   assert.deepEqual(w.sources(), {
     schema: '1.0', name: 'BGDB', license: 'CC0-1.0',
@@ -92,27 +92,25 @@ test('new-data-repo, the first one: made from the template, committed with the i
   assert.match(w.text(), /bg-db-data-1 is the current data repository/);
 });
 
-test('new-data-repo on GitHub: create and push, auto-merge, label, Pages, the required check, access to the private tools; refusals are warnings', async () => {
+test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no branch rule, access to the private tools; refusals are warnings', async () => {
   const w = world();
-  w.answers.refuse = ['/pages', '/protection'];                       // a private repository on a free plan
+  w.answers.refuse = ['/pages'];                                      // a private repository on a free plan
   w.answers.tag = false;
   assert.equal(await newDataRepo(w.opts({ name: 'bg-db-data-1' })), 0, w.text());
   const calls = w.gh.map((c) => c.args.join(' '));
-  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bg-db --json name', 'api repos/owner/bg-db/git/ref/tags/v3'], 'checked before anything is made');
+  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bg-db --json name', 'api repos/owner/bg-db/git/ref/tags/v4'], 'checked before anything is made');
   assert.match(calls.find((c) => c.startsWith('repo create')), /^repo create owner\/bg-db-data-1 --private --source .*bg-db-data-1 --remote origin --push --description /);
-  assert.ok(calls.includes('api -X PATCH repos/owner/bg-db-data-1 -F allow_auto_merge=true -F allow_squash_merge=true -F delete_branch_on_merge=true'));
+  assert.ok(calls.includes('api -X PATCH repos/owner/bg-db-data-1 -F allow_squash_merge=true -F delete_branch_on_merge=true'));
   assert.ok(calls.includes('label create submission -R owner/bg-db-data-1 --force'));
   assert.ok(calls.includes('api -X POST repos/owner/bg-db-data-1/pages -f build_type=workflow'));
   assert.ok(!calls.some((c) => c.startsWith('variable set')), 'no publication after ingest when Pages could not be turned on');
-  const rule = w.gh.find((c) => c.args.includes('repos/owner/bg-db-data-1/branches/master/protection'));
-  assert.deepEqual(JSON.parse(rule.input).required_status_checks.contexts, [REQUIRED_CHECK]);
+  assert.ok(!calls.some((c) => c.includes('/protection')), 'no branch rule: it would refuse the ingest\'s commits, and the review decides the merge');
   assert.ok(calls.includes('api -X PUT repos/owner/bg-db/actions/permissions/access -f access_level=user'));
   const t = w.text();
   assert.match(t, /warning: turn on Pages \(source: GitHub Actions\): refused \(HTTP 403: Upgrade to GitHub Pro\)\. By hand: Settings > Pages/);
-  assert.match(t, /warning: require the check "validate \/ validate" on master: refused/);
   assert.match(t, /warning: owner\/bg-db is private: add the secret BGDB_TOOLS_TOKEN to owner\/bg-db-data-1/);
   assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bg-db-data-1/);
-  assert.match(t, /warning: there is no tag v3 on GitHub in owner\/bg-db: .* git tag v3 && git push origin v3/);
+  assert.match(t, /warning: there is no tag v4 on GitHub in owner\/bg-db: .* git tag v4 && git push origin v4/);
   assert.ok(!calls.some((c) => c.startsWith('workflow run')), 'Pages refused: nothing to publish');
 
   const p = world();
@@ -312,7 +310,7 @@ test('publish-data-repo: a repository made with --local goes on GitHub later; a 
   assert.ok(!calls.some((c) => c.startsWith('repo create') || c.includes('-X POST')), calls.join('\n'));
   assert.match(w.text(), /owner\/a exists on GitHub: push to it[\s\S]*Pages is on already/);
   assert.ok(!/warning/.test(w.text()));
-  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bg-db@v3');
+  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bg-db@v4');
 
   // gh repo create refused: the folder and sources.json are kept, and the message says how to finish
   const f = world();

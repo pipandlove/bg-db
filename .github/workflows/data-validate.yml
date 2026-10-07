@@ -1,5 +1,5 @@
 # Reusable (decision 0024): called by the "validate" workflow of a data repository, for a pull request that adds matches.
-# Read-only: this is the status check ("validate / validate") that the branch rule of the data repository requires.
+# Read-only: its result is the status check "validate / validate" shown on the pull request; review-publish runs after it and decides the merge.
 #
 # Safety (spec SC-01): the pull request is only DATA here. The tools that run come from bg-db at the tag the data repository pins
 # (tools/), and the configuration from the base branch of the data repository (base/), never from the pull request, so a pull request

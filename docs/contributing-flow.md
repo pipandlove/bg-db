@@ -24,11 +24,11 @@ Nothing has to be named in a special way, filled in, or organised: the database 
 ## What happens to a pull request
 
 The workflows of a data repository are five short files that call the reusable workflows of `bg-db` (`.github/workflows/data-*.yml`) at the tag the data repository
-pins (`@v1`): the tools that check and file matches are those of that tag, so a new release of `bg-db` changes nothing in a data repository until its tag is moved.
+pins (`@v4`, for example): the tools that check and file matches are those of that tag, so a new release of `bg-db` changes nothing in a data repository until its tag is moved.
 
 1. **`validate`** (workflow, read-only): reads the pull request's files as data, with the tools of `bg-db` at the pinned tag and the configuration of the **base branch**, and runs `bgdb review`. Its result is the status check "validate / validate" (it fails when a fix is needed).
-2. **`review-publish`** (workflow, runs in the base repository after `validate`): redoes the review itself, then posts **one comment** (updated in place), sets the **labels** and, when the verdict is `ready`, turns on **auto-merge** (with `BGDB_BOT_TOKEN`, so that the merge starts the ingest).
-3. **GitHub merges** the pull request once the required check has passed.
+2. **`review-publish`** (workflow, runs in the base repository after `validate`): redoes the review itself, then posts **one comment** (updated in place), sets the **labels** and, when the verdict is `ready`, **merges** it (squash), only if its last commit is the one it checked, and with `BGDB_BOT_TOKEN`, so that the merge starts the ingest.
+3. No branch rule is involved: the review decides, and only people with write access can merge by hand.
 4. **`ingest`** (workflow on the default branch, one run at a time): runs `bgdb ingest --contributor <author>` on `inbox/`, commits `data/` (and empties `inbox/`), and optionally starts the publication of the site.
 
 The verdicts (ready, needs-fix, needs-review, needs-confirmation, duplicate, empty) and the labels are in [commands.md](commands.md#bgdb-review). A pull request that changes anything outside `inbox/`, or that contains an illegal play that
@@ -51,7 +51,7 @@ A pull request from a fork gets a read-only token and cannot comment; a workflow
 
 ## What the maintainer sets up once (GitHub)
 
-For each data repository: the settings (auto-merge, the branch rule with the check `validate / validate`, the label `submission`, Pages) and the two secrets
+For each data repository: the settings (squash merging, no branch rule, the label `submission`, Pages) and the two secrets
 (`BGDB_BOT_TOKEN`, and `BGDB_TOOLS_TOKEN` while `bg-db` is private). `npm run new-data-repo` and `npm run publish-data-repo` make the settings and say what they
 could not do; what each one is for, how to check it, and how to make the secrets, step by step: [data-repositories.md](data-repositories.md#3-the-two-secrets).
 Two defaults are right as they are: Settings > Actions > General > "Fork pull request workflows" (a maintainer approves the first run of a first-time contributor,
@@ -65,7 +65,7 @@ The Contribute page takes the repository to fork, the name of the copy's upload 
 The tools behind the workflows (review, verdicts, comment, issue conversion, the Contribute page) have automated tests, and the workflow files are checked for their safety rules and their YAML syntax. **The workflows themselves have not
 run on GitHub**: that needs the repository. Before relying on them, test them in a scratch repository:
 
-1. Follow [data-repositories.md](data-repositories.md) sections 1 to 4: `bg-db` on GitHub with the tag `v1`, a data repository (a scratch name is fine), its secrets and settings.
+1. Follow [data-repositories.md](data-repositories.md) sections 1 to 4: `bg-db` on GitHub with its tag, a data repository (a scratch name is fine), its secrets and settings.
 2. From a second branch, add a valid match to `inbox/` and open a pull request: expect the check `validate / validate`, then a comment, the labels `ready` and `auto-merge`, a merge within a few minutes, and a commit "ingest: matches added by ..." on `master` with the match in `data/`.
 3. Open a pull request with a broken file: expect `needs-fix`, a failing check and no merge; fix it with a new commit: expect the same comment to be updated and the merge.
 4. Open a pull request that also edits a file outside `inbox/`: expect `needs-review` and no merge.
@@ -75,7 +75,7 @@ run on GitHub**: that needs the repository. Before relying on them, test them in
 8. After an ingest: expect the `pages` workflow to publish `data/` (with `PUBLISH_AFTER_INGEST`), and the site of `bg-db`, built with `sources.json`, to list the match.
 9. Make a second scratch data repository and switch to it (`npm run switch-data-repo`, run until it says it is done): expect a pull request to the first one to get the verdict `closed`, the first one archived, and a duplicate of its match sent to the second one recognised.
 
-If a step fails, the workflow log names the step. Typical causes: auto-merge not allowed in the settings, the required check not selected, a missing label permission, a branch protection that requires reviews.
+If a step fails, the workflow log names the step. Typical causes are in [data-repositories.md](data-repositories.md#10-troubleshooting): a missing secret, a branch rule on `master`, squash merging not allowed.
 
 ## Not done yet
 

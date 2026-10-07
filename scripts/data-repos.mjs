@@ -2,13 +2,13 @@
 /**
  * The steps of decision 0024 that a person takes, on their own machine, with their own `gh` login (no workflow creates repositories).
  *
- *   npm run new-data-repo -- <name> [--owner o] [--tools-ref v3] [--first-shard n] [--public] [--local] [--dry-run]
+ *   npm run new-data-repo -- <name> [--owner o] [--tools-ref v4] [--first-shard n] [--public] [--local] [--dry-run]
  *   npm run publish-data-repo -- <name> [--public] [--dry-run]
  *   npm run switch-data-repo -- [--local] [--dry-run]
  *
  * new-data-repo   makes ../<name> from templates/data-repo (workflows pinned to the tools' tag, bgdb.config.json with firstShard, README,
- *                 CONTRIBUTING), commits it, creates it on GitHub (gh repo create --push), allows auto-merge, turns Pages on, requires the
- *                 "validate / validate" check on master, and lists it in sources.json: "current" if it is the first, else "next".
+ *                 CONTRIBUTING), commits it, creates it on GitHub (gh repo create --push), allows squash merging, turns Pages on, and
+ *                 lists it in sources.json: "current" if it is the first, else "next". No branch rule: the bot's review decides the merge.
  * publish-data-repo  the GitHub part of new-data-repo, for a repository made with --local (or one whose GitHub part stopped): safe to repeat.
  * switch-data-repo  closes the current repository (closed: true), waits until its open pull requests are merged or closed and its inbox
  *                 is empty (run it again until then), seals its last shard, copies the hash files of its shards into the next repository,
@@ -27,8 +27,7 @@ import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHas
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v3';
-export const REQUIRED_CHECK = 'validate / validate';          // the caller job "validate" running the reusable job "validate"
+export const DEFAULT_TOOLS_REF = 'v4';
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
 /** run a program; the tests replace it to answer for gh */
@@ -149,8 +148,8 @@ async function onGitHub(c, { repository, owner, dir, toolsRepository, toolsRef, 
       c.must('git', ['-C', dir, 'push', '-q', '-u', 'origin', 'master']);
     });
   }
-  c.tryGh('allow auto-merge and squash merging', ['api', '-X', 'PATCH', `repos/${repository}`, '-F', 'allow_auto_merge=true', '-F', 'allow_squash_merge=true', '-F', 'delete_branch_on_merge=true'],
-    `Settings > General > Pull Requests: allow auto-merge and squash merging (${GUIDE}, "The settings")`);
+  c.tryGh('allow squash merging, delete branches after merge', ['api', '-X', 'PATCH', `repos/${repository}`, '-F', 'allow_squash_merge=true', '-F', 'delete_branch_on_merge=true'],
+    `Settings > General > Pull Requests: allow squash merging, automatically delete head branches (${GUIDE}, "The settings")`);
   c.tryGh('create the label "submission" (the issue form uses it)', ['label', 'create', 'submission', '-R', repository, '--force'], `gh label create submission -R ${repository}`);
   const pagesOn = c.run('gh', ['api', `repos/${repository}/pages`]).status === 0;
   const pages = pagesOn ? (c.out('Pages is on already'), true)
@@ -162,9 +161,6 @@ async function onGitHub(c, { repository, owner, dir, toolsRepository, toolsRef, 
     if (c.tagOk) c.tryGh('publish it once (the site reads its registry.json)', ['workflow', 'run', 'pages.yml', '-R', repository, '--ref', 'master'], `the data repository > Actions > pages > Run workflow`);
     else c.warnings.push(`once the tag ${toolsRef} exists, publish ${repository} once (the site reads its registry.json): gh workflow run pages.yml -R ${repository}`);
   }
-  const rule = { required_status_checks: { strict: false, contexts: [REQUIRED_CHECK] }, enforce_admins: false, required_pull_request_reviews: null, restrictions: null };
-  c.tryGh(`require the check "${REQUIRED_CHECK}" on master`, ['api', '-X', 'PUT', `repos/${repository}/branches/master/protection`, '--input', '-'],
-    `Settings > Branches: a rule for master that requires the status check "${REQUIRED_CHECK}", no required review; a private repository needs a paid plan (${GUIDE}, "The settings")`, JSON.stringify(rule));
   const vis = c.run('gh', ['repo', 'view', toolsRepository, '--json', 'visibility', '--jq', '.visibility']).stdout.trim();
   const secrets = c.dryRun ? [] : (() => { try { return JSON.parse(c.run('gh', ['secret', 'list', '-R', repository, '--json', 'name']).stdout || '[]').map((x) => x.name); } catch { return []; } })();
   if (vis === 'PRIVATE') {
@@ -417,7 +413,7 @@ export function parseArgs(argv) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const o = parseArgs(process.argv.slice(2));
   if (o.help || !['new', 'publish', 'switch'].includes(o.command)) {
-    console.log('Usage: npm run new-data-repo -- <name> [--owner o] [--tools-ref v3] [--first-shard n] [--public] [--local] [--dry-run]\n'
+    console.log('Usage: npm run new-data-repo -- <name> [--owner o] [--tools-ref v4] [--first-shard n] [--public] [--local] [--dry-run]\n'
       + '       npm run publish-data-repo -- <name> [--public] [--dry-run]\n'
       + '       npm run switch-data-repo -- [--local] [--dry-run]\nGuide: docs/data-repositories.md');
     process.exitCode = o.help ? 0 : 2;

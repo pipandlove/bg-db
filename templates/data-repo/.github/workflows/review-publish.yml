@@ -1,4 +1,4 @@
-# After "validate": the bot's comment, the labels, and auto-merge when the review says it is safe (decision 0015).
+# After "validate": the bot's comment, the labels, and the merge when the review says it is safe (decision 0015).
 name: review-publish
 on:
   workflow_run:
