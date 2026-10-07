@@ -1,0 +1,14 @@
+{
+  "schema": "1.0",
+  "name": "BGDB",
+  "license": "CC0-1.0",
+  "sources": [
+    {
+      "name": "bg-db-data-1",
+      "url": "https://pipandlove.github.io/bg-db-data-1/",
+      "repository": "pipandlove/bg-db-data-1",
+      "defaultBranch": "master",
+      "state": "current"
+    }
+  ]
+}
