@@ -97,6 +97,7 @@ test('review-publish: runs after validate in the context of the base repository,
   assert.match(prCheckout, /persist-credentials: false/);
   assert.match(prCheckout, /head_sha/);
   assert.match(t, /gh pr merge "\$PR" -R "\$REPO" --auto --squash/);
+  assert.match(t, /- name: Auto-merge when the review says it is safe\n\s+if: env\.PR != ''\n\s+env:\n\s+GH_TOKEN: \$\{\{ secrets\.BGDB_BOT_TOKEN \|\| github\.token \}\}/, 'the merge is made with the bot token, so that its push starts the ingest');
   for (const m of t.matchAll(/gh (?:pr|label) [a-z]+ [^\n]*/g)) assert.match(m[0], /-R "\$REPO"/, `the workspace is not a checkout of the repository: ${m[0]}`);
   assert.ok(!/gh pr view [^\n]*authorAssociation/.test(t), '"gh pr view --json" has no authorAssociation: the REST API is read instead');
   assert.match(t, /gh api "repos\/\$REPO\/pulls\/\$PR" > pr\.json[\s\S]*jq -r '\.author_association' pr\.json/);
@@ -105,6 +106,7 @@ test('review-publish: runs after validate in the context of the base repository,
 test('ingest: only on the default branch, one run at a time, never cancelled, commits with a bot identity', () => {
   const c = caller('ingest.yml');
   assert.match(c, /branches: \[master\]/);
+  assert.match(c, /^on:\n  workflow_dispatch:\n  push:/m, 'it can be run by hand');
   assert.match(c, /concurrency:\n  group: ingest\n  cancel-in-progress: false/);
   assert.match(c, /permissions:\n  contents: write\n  issues: write\n  actions: write/, 'actions: write lets it start the pages workflow');
   assert.ok(!/pull_request/.test(c));

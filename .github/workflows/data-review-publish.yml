@@ -90,7 +90,11 @@ jobs:
           for L in ready auto-merge needs-fix needs-review needs-confirmation partial duplicate enrichment bulk closed; do
             if echo "$WANT" | grep -qx "$L"; then gh pr edit "$PR" -R "$REPO" --add-label "$L" >/dev/null; else gh pr edit "$PR" -R "$REPO" --remove-label "$L" >/dev/null 2>&1 || true; fi
           done
+      # with BGDB_BOT_TOKEN the merge is made in the maintainer's name, so its push starts the ingest; a push made with the workflow's own
+      # token starts no workflow (GitHub rule), and the matches would wait in inbox/ until the ingest is run by hand
       - name: Auto-merge when the review says it is safe
         if: env.PR != ''
+        env:
+          GH_TOKEN: ${{ secrets.BGDB_BOT_TOKEN || github.token }}
         run: |
           if [ "$(jq -r '.autoMerge' report.json)" = "true" ]; then gh pr merge "$PR" -R "$REPO" --auto --squash; fi

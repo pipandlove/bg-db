@@ -1,6 +1,7 @@
-# After a merge: file the matches of inbox/ into the open shard of data/, one run at a time (spec IN-01).
+# After a merge: file the matches of inbox/ into the open shard of data/, one run at a time (spec IN-01). "Run workflow" (Actions > ingest) runs it by hand.
 name: ingest
 on:
+  workflow_dispatch:
   push:
     branches: [master]
     paths: ['inbox/**']

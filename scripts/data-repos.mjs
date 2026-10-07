@@ -2,7 +2,7 @@
 /**
  * The steps of decision 0024 that a person takes, on their own machine, with their own `gh` login (no workflow creates repositories).
  *
- *   npm run new-data-repo -- <name> [--owner o] [--tools-ref v2] [--first-shard n] [--public] [--local] [--dry-run]
+ *   npm run new-data-repo -- <name> [--owner o] [--tools-ref v3] [--first-shard n] [--public] [--local] [--dry-run]
  *   npm run publish-data-repo -- <name> [--public] [--dry-run]
  *   npm run switch-data-repo -- [--local] [--dry-run]
  *
@@ -27,7 +27,7 @@ import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHas
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v2';
+export const DEFAULT_TOOLS_REF = 'v3';
 export const REQUIRED_CHECK = 'validate / validate';          // the caller job "validate" running the reusable job "validate"
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
@@ -172,7 +172,7 @@ async function onGitHub(c, { repository, owner, dir, toolsRepository, toolsRef, 
       `in ${toolsRepository}: Settings > Actions > General > Access: "Accessible from repositories owned by ${owner}"`);
     if (!secrets.includes('BGDB_TOOLS_TOKEN')) c.warnings.push(`${toolsRepository} is private: add the secret BGDB_TOOLS_TOKEN to ${repository}, or its workflows cannot read the tools (${GUIDE}, "The two secrets")`);
   }
-  if (!secrets.includes('BGDB_BOT_TOKEN')) c.warnings.push(`add the secret BGDB_BOT_TOKEN to ${repository}: without it a "Submit a match" issue cannot become a pull request (${GUIDE}, "The two secrets")`);
+  if (!secrets.includes('BGDB_BOT_TOKEN')) c.warnings.push(`add the secret BGDB_BOT_TOKEN to ${repository}: without it a "Submit a match" issue cannot become a pull request, and an automatic merge does not start the ingest (${GUIDE}, "The two secrets")`);
 }
 
 // ------------------------------------------------------------------------------------------------ new-data-repo
@@ -417,7 +417,7 @@ export function parseArgs(argv) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const o = parseArgs(process.argv.slice(2));
   if (o.help || !['new', 'publish', 'switch'].includes(o.command)) {
-    console.log('Usage: npm run new-data-repo -- <name> [--owner o] [--tools-ref v2] [--first-shard n] [--public] [--local] [--dry-run]\n'
+    console.log('Usage: npm run new-data-repo -- <name> [--owner o] [--tools-ref v3] [--first-shard n] [--public] [--local] [--dry-run]\n'
       + '       npm run publish-data-repo -- <name> [--public] [--dry-run]\n'
       + '       npm run switch-data-repo -- [--local] [--dry-run]\nGuide: docs/data-repositories.md');
     process.exitCode = o.help ? 0 : 2;

@@ -141,7 +141,7 @@ is given access to repositories that exist.
 | Secret | Why | Needed |
 |---|---|---|
 | `BGDB_TOOLS_TOKEN` | the workflows of a data repository fetch the tools from `pipandlove/bg-db`. While `bg-db` is **private**, the token GitHub gives a workflow can only read its own repository, so without this secret every workflow fails at "The tools, at the pinned tag" | while `bg-db` is private |
-| `BGDB_BOT_TOKEN` | a "Submit a match" issue becomes a pull request made by a workflow. Without this secret the workflow has only GitHub's own token, which may not open a pull request ("GitHub Actions is not permitted to create or approve pull requests"), and even when allowed, a pull request it opens starts no check (`validate` does not run) | **for the issue route** ("Send as a GitHub issue" on the Contribute page, the "Submit a match" form); pull requests work without it |
+| `BGDB_BOT_TOKEN` | the workflows act for you where GitHub's own workflow token is not enough: a "Submit a match" issue becomes a pull request (GitHub's token may not open one: "GitHub Actions is not permitted to create or approve pull requests", and a pull request it opens starts no check), and the automatic merge is made in your name, so that its push starts the ingest (a push made with GitHub's token starts no workflow) | **yes**: without it the issue route fails, and merged matches wait in `inbox/` until you run the ingest by hand (Actions > ingest > Run workflow) |
 
 ### 3.1 Make a token (on github.com)
 
@@ -239,8 +239,8 @@ A data repository uses the tools at the tag in its workflows, so a change in `bg
 ```sh
 cd ~/repo/bg-db && git tag v2 && git push origin v2
 cd ~/repo/bg-db-data-1
-sed -i 's/@v1$/@v2/; s/tools-ref: v1$/tools-ref: v2/' .github/workflows/*.yml
-git diff                                       # ten lines: two in each of the five files
+sed -i 's/\bv1\b/v2/g' .github/workflows/*.yml README.md
+git diff                                       # two lines in each workflow, the comment of validate.yml, the README
 git commit -am "Tools v2" && git push
 ```
 
@@ -253,6 +253,7 @@ The tags so far:
 |---|---|---|
 | `v1` | 2026-10-07 | the first release |
 | `v2` | 2026-10-07 | review-publish reads the pull request through the REST API (it failed with "Unknown JSON field: authorAssociation"); issue-to-pr says on the issue when it cannot open the pull request |
+| `v3` | 2026-10-07 | review-publish turns on auto-merge with `BGDB_BOT_TOKEN`, so that the merge starts the ingest. A data repository moving to `v3` also adds `workflow_dispatch:` to its `ingest.yml` (the template has it: "Run workflow" by hand) |
 
 ## 8. The next data repository, and the switch
 
@@ -296,6 +297,7 @@ Corrections and enrichments of a match of an archived repository are written in 
 | `validate / validate` cannot be chosen in the branch rule | it is listed only after it has run once: open a test pull request first |
 | the `issue-to-pr` workflow fails: "GitHub Actions is not permitted to create or approve pull requests" | the secret `BGDB_BOT_TOKEN` is missing (section 3). The match is already on the branch `submission/issue-<n>`: once the secret is set, run the workflow again (`gh run rerun <run id> -R pipandlove/bg-db-data-1`, or edit the issue), and it opens the pull request |
 | pull requests made from issues have no check | the secret `BGDB_BOT_TOKEN` |
+| a pull request was merged, but its matches stay in `inbox/` (no ingest run) | the merge was made with GitHub's own token, whose pushes start no workflow: set `BGDB_BOT_TOKEN` (and use tools `v3` or later), then run the ingest once by hand: `gh workflow run ingest.yml -R pipandlove/bg-db-data-1` |
 | GitHub's upload page says "Uploads are disabled" | uploads need write access, so contributors upload into their own copy (fork): the Contribute page leads them there once they type their GitHub name. The owner cannot fork their own repository and `master` is protected: add matches with git (section 6) |
 | warnings about Pages or the branch rule, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
 | the site or the Contribute page: "The database could not be loaded (https://.../bg-db-data-1/registry.json: HTTP 404)" | the data repository was never published: its `pages` workflow runs on a push that changes `data/`, and a new repository has none. Run it once: `gh workflow run pages.yml -R pipandlove/bg-db-data-1` (or Actions > pages > Run workflow); also check that Pages is on (section 4) |

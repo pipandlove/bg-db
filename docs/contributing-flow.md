@@ -27,7 +27,7 @@ The workflows of a data repository are five short files that call the reusable w
 pins (`@v1`): the tools that check and file matches are those of that tag, so a new release of `bg-db` changes nothing in a data repository until its tag is moved.
 
 1. **`validate`** (workflow, read-only): reads the pull request's files as data, with the tools of `bg-db` at the pinned tag and the configuration of the **base branch**, and runs `bgdb review`. Its result is the status check "validate / validate" (it fails when a fix is needed).
-2. **`review-publish`** (workflow, runs in the base repository after `validate`): redoes the review itself, then posts **one comment** (updated in place), sets the **labels** and, when the verdict is `ready`, turns on **auto-merge**.
+2. **`review-publish`** (workflow, runs in the base repository after `validate`): redoes the review itself, then posts **one comment** (updated in place), sets the **labels** and, when the verdict is `ready`, turns on **auto-merge** (with `BGDB_BOT_TOKEN`, so that the merge starts the ingest).
 3. **GitHub merges** the pull request once the required check has passed.
 4. **`ingest`** (workflow on the default branch, one run at a time): runs `bgdb ingest --contributor <author>` on `inbox/`, commits `data/` (and empties `inbox/`), and optionally starts the publication of the site.
 
