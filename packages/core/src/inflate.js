@@ -38,9 +38,10 @@ function fixedTables() {
 /**
  * @param {Uint8Array} src
  * @param {number} [start] offset of the raw deflate data
+ * @param {number} [maxOut] refuse to produce more bytes than this (a small archive that expands enormously)
  * @returns {{out:Uint8Array, end:number}} end = offset of the first byte after the data
  */
-export function inflateRaw(src, start = 0) {
+export function inflateRaw(src, start = 0, maxOut = Infinity) {
   let pos = start;
   let bitBuf = 0;
   let bitCnt = 0;
@@ -74,6 +75,7 @@ export function inflateRaw(src, start = 0) {
   };
   const ensure = (n) => {
     if (outPos + n <= out.length) return;
+    if (outPos + n > maxOut) throw bad(`more than ${maxOut} bytes`);
     const bigger = new Uint8Array(Math.max(out.length * 2, outPos + n));
     bigger.set(out.subarray(0, outPos));
     out = bigger;

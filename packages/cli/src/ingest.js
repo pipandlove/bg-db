@@ -19,25 +19,75 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { groupFiles, analyzeGroup, buildMeta, sha256Hex, displayKey, CANONICAL_VERSION } from '@bg-db/core';
+import { groupFiles, analyzeGroup, buildMeta, sha256Hex, displayKey, CANONICAL_VERSION, readZip, decodeText } from '@bg-db/core';
 import { listShards, writeShardInfo, matchPaths, attachmentPath, loadHashIndex, shardIdOf, treeDigest, readMetas, nextShardNumber, repoSize, repoState } from './store.js';
 import { enrichMatch, readLocalMeta, listEnrichments, currentMeta, ID_RE } from './enrich.js';
 import { reconcileInbox } from './reconcile.js';
 
-/** All files of a folder (recursively), read as bytes and grouped by directory + base name. Files that are not part of a contribution are ignored. */
-export function collectGroups(dir) {
+/** notes that come with a contribution, never a match: the CONTRIBUTION.md the Contribute page puts in its ZIP (with the rights statement), and READMEs */
+export const NOTE_RE = /^(readme(\.(txt|md))?|contribution\.md)$/i;
+const isZip = (name) => name.toLowerCase().endsWith('.zip');
+
+/**
+ * All files of a folder (recursively), read as bytes and grouped by directory + base name. Files that are not part of a contribution are ignored.
+ * A ZIP archive is read as a folder of its own (inbox/x.zip/<file>), without writing anything: contributors upload the Contribute page's ZIP as it
+ * is. out.problems receives the archives that cannot be read; out.notes the notes (the inbox's own README.md is not one).
+ * @param {string} dir
+ * @param {{problems?:{file:string, message:string}[], notes?:{file:string, text:string}[]}} [out]
+ */
+export function collectGroups(dir, out = {}) {
+  out.problems ??= [];
+  out.notes ??= [];
   const entries = [];
+  const note = (file, bytes) => out.notes.push({ file, text: decodeText(bytes).text });
   const rec = (d) => {
     if (!fs.existsSync(d)) return;
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
       const p = path.join(d, e.name);
-      if (e.isDirectory()) rec(p); else entries.push({ name: e.name, dir: d, path: p });
+      if (e.isDirectory()) rec(p);
+      else if (isZip(e.name)) {
+        const z = readZip(new Uint8Array(fs.readFileSync(p)));
+        if (!z.ok) { out.problems.push({ file: p, message: `${e.name} cannot be read: ${z.error}` }); continue; }
+        for (const x of z.entries) {
+          if (NOTE_RE.test(x.name)) note(path.join(p, x.name), x.bytes);
+          else entries.push({ name: x.name, dir: p, path: path.join(p, x.name), bytes: x.bytes, zip: p });
+        }
+      } else if (NOTE_RE.test(e.name)) { if (!(d === dir && e.name === 'README.md')) note(p, fs.readFileSync(p)); }
+      else entries.push({ name: e.name, dir: d, path: p });
     }
   };
   rec(dir);
   const groups = groupFiles(entries);
-  for (const g of groups) for (const list of Object.values(g.files)) for (const e of list) e.bytes = new Uint8Array(fs.readFileSync(e.path));
+  for (const g of groups) for (const list of Object.values(g.files)) for (const e of list) e.bytes ??= new Uint8Array(fs.readFileSync(e.path));
   return groups;
+}
+
+/**
+ * Unpack the ZIP archives of the inbox before an ingest: each one becomes a folder next to it (x.zip -> x/, or x-2/ when x/ is taken), without
+ * its notes, and is deleted. An archive that cannot be read stays where it is (collectGroups reports it).
+ * @returns {string[]} the archives unpacked
+ */
+export function unpackZips(dir) {
+  const done = [];
+  const rec = (d) => {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { rec(p); continue; }
+      if (!isZip(e.name)) continue;
+      const z = readZip(new Uint8Array(fs.readFileSync(p)));
+      if (!z.ok) continue;
+      const stem = e.name.slice(0, -4) || 'archive';
+      let to = path.join(d, stem);
+      for (let n = 2; fs.existsSync(to); n++) to = path.join(d, `${stem}-${n}`);
+      fs.mkdirSync(to);
+      for (const x of z.entries) if (!NOTE_RE.test(x.name)) fs.writeFileSync(path.join(to, x.name), x.bytes);
+      fs.rmSync(p);
+      done.push(p);
+    }
+  };
+  rec(dir);
+  return done;
 }
 
 const allEntries = (g) => Object.values(g.files).flat();
@@ -90,7 +140,14 @@ export function ingest(o) {
   const report = { results: [], added: 0, duplicates: 0, enriched: 0, errors: 0, partial: 0, superseded: 0, waiting: 0, sealed: [], repo: null };
   const push = (r) => { report.results.push(r); o.onResult?.(r); };
 
-  const groups = collectGroups(o.inbox);
+  // the Contribute page's ZIP, uploaded as it is: unpacked first (a dry run reads it in place)
+  if (!o.dryRun) unpackZips(o.inbox);
+  const found = {};
+  const groups = collectGroups(o.inbox, found);
+  for (const pr of found.problems) {
+    report.errors++;
+    push({ file: pr.file, files: [pr.file], status: 'error', errors: [{ severity: 'error', code: 'V-FORMAT', message: pr.message, hint: 'Upload the files of the archive instead (unzip it first), or the ZIP made by the Contribute page.' }] });
+  }
   o.onStart?.(groups.length);
   o.onStep?.('looking for transcriptions of the same match (the copies found are read in full: about a minute for thousands of files)');
   const recon = reconcileInbox(groups, { stored, config: o.config });
@@ -210,6 +267,20 @@ export function ingest(o) {
       warnings: [...res.warnings, ...res.infos.map((i) => ({ ...i, severity: 'info' }))], attachments: attMeta.map((a) => a.kind), links: res.links.length,
     });
   }
+  // the notes of the contributions (CONTRIBUTION.md, READMEs) have served: they would otherwise stay in the inbox for ever
+  if (!o.dryRun) for (const n of found.notes) if (fs.existsSync(n.file)) fs.rmSync(n.file);
+  if (!o.dryRun) removeEmptyFolders(o.inbox);
   report.repo = repo();
   return report;
+}
+
+/** folders of the inbox left empty by an ingest (an unpacked ZIP whose matches were all filed) */
+function removeEmptyFolders(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const p = path.join(dir, e.name);
+    removeEmptyFolders(p);
+    if (fs.readdirSync(p).length === 0) fs.rmdirSync(p);
+  }
 }

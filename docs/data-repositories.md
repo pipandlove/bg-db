@@ -254,6 +254,7 @@ The tags so far:
 | `v2` | 2026-10-07 | review-publish reads the pull request through the REST API (it failed with "Unknown JSON field: authorAssociation"); issue-to-pr says on the issue when it cannot open the pull request |
 | `v3` | 2026-10-07 | review-publish turns on auto-merge with `BGDB_BOT_TOKEN`, so that the merge starts the ingest. A data repository moving to `v3` also adds `workflow_dispatch:` to its `ingest.yml` (the template has it: "Run workflow" by hand) |
 | `v4` | 2026-10-07 | review-publish merges the pull request itself (only the commit it checked) instead of turning on auto-merge, so the data repository needs no branch rule, which refused the ingest's commits. A data repository moving to `v4` removes its branch rule on `master` |
+| `v5` | 2026-10-07 | the review and the ingest accept the Contribute page's ZIP uploaded as it is (it was found empty: "no match file was found under inbox/"), and its rights statement (`CONTRIBUTION.md`) counts like the ticked box. Nothing to change in a data repository but the tag |
 
 ## 8. The next data repository, and the switch
 

@@ -57,7 +57,11 @@ export const sendable = (item) => item.res.status === 'new' || (item.res.status 
  * The files to hand over for the matches that will be sent: the originals under a good name, plus a .bgdb.json when there is something to
  * add (links, tags, declared illegal plays, the acceptance of a partial match).
  */
-export function packageFiles(items, extrasOf) {
+/** the rights statement the ZIP carries once the box is ticked on the page: the review accepts it like the box of a pull request description */
+export const rightsLine = (license) => `- [x] I have the right to share these matches under ${license === 'CC0-1.0' || !license ? 'the CC0 public-domain dedication' : `the licence of the database (${license})`} (ticked on the Contribute page).`;
+
+/** @param {(base:string)=>object} [extrasOf] @param {string} [license] the licence of the database, for the rights statement */
+export function packageFiles(items, extrasOf, license = 'CC0-1.0') {
   const files = [];
   for (const item of items) {
     const { group, res, base } = item;
@@ -84,7 +88,8 @@ export function packageFiles(items, extrasOf) {
     }
   }
   if (files.length) {
-    files.push({ name: 'README.txt', bytes: 'Put these files in the "inbox" folder of your copy (fork) of the database repository on GitHub (Add file > Upload files), and open a pull request to the database repository.\nThe files of one match share the same name. Nothing else is needed: they are checked again, and merged automatically if all is well.\n' });
+    // a note, never read as a match: the instructions, and the rights statement ticked on the page (the review accepts it, decision 0015)
+    files.push({ name: 'CONTRIBUTION.md', bytes: `# Matches for the database\n\nUpload this ZIP as it is, or its files, into the "inbox" folder of your copy (fork) of the database repository on GitHub (Add file > Upload files), and open a pull request to the database repository. The files of one match share the same name. Nothing else is needed: they are checked again, and merged automatically if all is well.\n\n${rightsLine(license)}\n` });
   }
   return files;
 }

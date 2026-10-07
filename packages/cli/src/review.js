@@ -27,11 +27,23 @@ function sidecarPath(inbox, g) {
   return `inbox/${dir ? `${dir}/` : ''}${g.base}.bgdb.json`;
 }
 
-/** @returns {{groups:object[], summary:object}} */
+/**
+ * @returns {{groups:object[], summary:object, rights:boolean}} rights: a note of the contribution declares the rights (the CONTRIBUTION.md the
+ *   Contribute page writes into its ZIP once the box is ticked there), which counts like the box of the pull request description
+ */
 export function reviewInbox({ inbox, data, config }) {
   const known = loadHashIndex(listShards(data), data).byFull;
   const groups = [];
-  for (const g of collectGroups(inbox)) {
+  const found = {};
+  const collected = collectGroups(inbox, found);
+  for (const pr of found.problems) {
+    groups.push({
+      base: path.basename(pr.file), files: [path.relative(inbox, pr.file).split(path.sep).join('/')], status: 'error',
+      errors: [{ severity: 'error', code: 'V-FORMAT', message: pr.message, hint: 'Upload the files of the archive instead (unzip it first), or the ZIP made by the Contribute page.' }],
+      warnings: [], infos: [], id: null, summary: null, attachments: [], links: 0, duplicateOf: null, extrasIgnored: false, enrich: null, partial: null, normalised: null,
+    });
+  }
+  for (const g of collected) {
     const files = Object.values(g.files).flat().map((e) => path.relative(inbox, e.path).split(path.sep).join('/'));
     const res = analyzeGroup(g, { config, known });
     if (res.status === 'new') known.set(res.full, '(earlier in this submission)');
@@ -51,7 +63,7 @@ export function reviewInbox({ inbox, data, config }) {
     });
   }
   const count = (s) => groups.filter((x) => x.status === s).length;
-  return { groups, summary: { groups: groups.length, new: count('new'), partial: count('partial'), duplicate: count('duplicate') - groups.filter((x) => x.enrich).length, enrich: groups.filter((x) => x.enrich).length, error: count('error'), warnings: groups.reduce((n, x) => n + x.warnings.filter((w) => w.severity === 'warning').length, 0) } };
+  return { groups, rights: found.notes.some((n) => rightsDeclared(n.text)), summary: { groups: groups.length, new: count('new'), partial: count('partial'), duplicate: count('duplicate') - groups.filter((x) => x.enrich).length, enrich: groups.filter((x) => x.enrich).length, error: count('error'), warnings: groups.reduce((n, x) => n + x.warnings.filter((w) => w.severity === 'warning').length, 0) } };
 }
 
 /**
@@ -68,7 +80,7 @@ export function classify(report, { changed = null, body = null, closed = false }
   if (closed) { verdict = 'closed'; reasons.push('this data repository is closed: it takes no more matches'); }
   else if (summary.groups === 0) { verdict = 'empty'; reasons.push('no match file was found under inbox/'); }
   else if (summary.error > 0) { verdict = 'needs-fix'; reasons.push(`${summary.error} file(s) have errors`); }
-  else if (body !== null && !rightsDeclared(body)) { verdict = 'needs-fix'; reasons.push('the rights box of the pull request description is not ticked'); }
+  else if (body !== null && !rightsDeclared(body) && !report.rights) { verdict = 'needs-fix'; reasons.push('the rights box of the pull request description is not ticked'); }
   else if (summary.groups > LIMITS.maxGroups) { verdict = 'needs-fix'; reasons.push(`${summary.groups} matches in one pull request (the limit is ${LIMITS.maxGroups}): please split it`); }
   else if (summary.partial > 0) { verdict = 'needs-confirmation'; reasons.push(`${summary.partial} match${summary.partial === 1 ? '' : 'es'} can only be added partially, and that needs your agreement`); }
   else if (summary.new === 0 && !summary.enrich) { verdict = 'duplicate'; reasons.push('everything is already in the database'); }

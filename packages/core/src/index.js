@@ -16,6 +16,7 @@ export * from './gnubgid.js';
 export { detectFormat, readMatch, readMatchBytes, parseMatchBytes } from './read.js';
 export { parseXg, isXg } from './xg.js';
 export { inflateRaw, inflateZlib } from './inflate.js';
+export { readZip, ZIP_LIMITS } from './zip.js';
 export { decodeText } from './text.js';
 export { fileKind, groupFiles, analyzeGroup, parseSidecar, TAG_RE, META_KEYS } from './contribution.js';
 export { cleanHeaderMetadata, siteEvent, nameMetadata, displayKey, planMetadata } from './metadata.js';

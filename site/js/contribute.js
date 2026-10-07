@@ -145,10 +145,10 @@ async function check(files) {
 }
 
 function zipNow() {
-  const files = packageFiles(S.items, (base) => S.extras.get(base));
+  const files = packageFiles(S.items, (base) => S.extras.get(base), S.data.registry.license);
   if (!files.length) return;
   download(new Blob([makeZip(files)], { type: 'application/zip' }), 'matches-for-bgdb.zip');
-  ui.done.textContent = `The ZIP has ${files.length - 1} file${files.length - 1 === 1 ? '' : 's'}. Next: unzip it, then ${ui.upload.hidden ? 'put the files in the inbox folder of your copy of the repository and open a pull request' : 'open the upload page of your copy and drop the files there'}.`;
+  ui.done.textContent = `The ZIP has ${files.length - 1} file${files.length - 1 === 1 ? '' : 's'}. Next: ${ui.upload.hidden ? 'put it in the inbox folder of your copy of the repository and open a pull request' : 'open the upload page of your copy and drop the ZIP there, as it is'}.`;
 }
 
 function build() {
@@ -180,9 +180,9 @@ function build() {
   ui.issueWhy = h('p', { class: 'muted small' });
   ui.done = h('p', { role: 'status', 'aria-live': 'polite' });
   ui.steps = h('ol', { class: 'steps' },
-    h('li', {}, 'Tick the box, then download the files (ZIP) and unzip them.'),
+    h('li', {}, 'Tick the box, then download the files (ZIP).'),
     h('li', {}, 'GitHub lets you upload only into your own copy of the database: the first time, make it with "Make your copy (fork)", then type your GitHub name.'),
-    h('li', {}, 'Open the upload page of your copy, drop the files in, choose "Create a new branch for this commit and start a pull request", and press "Propose changes". On the next page, check that the pull request goes to the database repository and press "Create pull request".'),
+    h('li', {}, 'Open the upload page of your copy, drop the ZIP in (as it is, or its files), choose "Create a new branch for this commit and start a pull request", and press "Propose changes". On the next page, check that the pull request goes to the database repository and press "Create pull request".'),
     h('li', {}, 'A bot checks it again within minutes and merges it automatically if everything is fine.'));
   ui.send = h('section', { class: 'card send', hidden: true, 'aria-label': 'Send' },
     h('h3', { text: 'Send them' }),

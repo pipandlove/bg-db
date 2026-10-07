@@ -59,6 +59,11 @@ normalised `.mat` form (read back to make sure it is identical) and stored with 
 inbox with an explanation; duplicates are reported and removed from the inbox. When the open shard reaches a limit it is sealed
 and the next shard opens. Site match identifiers are never stored.
 
+**A ZIP in the inbox** (the Contribute page's, uploaded as it is) is unpacked first into a folder next to it (`x.zip` gives `x/`) and deleted; a dry run reads
+it in place. It is read defensively (`readZip` of the core: at most 500 entries, 10 MB each, 50 MB in all, no encrypted or ZIP64 entries, plain file names
+only); one that cannot be read stays in the inbox, reported as an error. **Notes** are never read as matches: `CONTRIBUTION.md` (the page writes it into its
+ZIP, with the rights statement), `README.txt` and `README.md` (except the inbox's own); the ingest removes them once it has run.
+
 **A contribution is a group of files with the same base name** (spec ATT-01):
 
 | File | Role |
@@ -220,10 +225,11 @@ for example `https://user.github.io/bg-db-data/data/0001/`. Refuses an open or u
 Checks what a pull request that adds files to `inbox/` would do, **without writing anything** to `data/` or changing `inbox/`. Every contribution (a group of files, see ingest) is checked with the same code as `ingest`
 and as the "Contribute" page; the result is a **verdict**, **labels**, the decision whether the pull request may be **merged automatically**, and the text of the bot's comment.
 It runs in the workflows of the repository ([contributing-flow.md](contributing-flow.md)), and you can run it yourself before opening a pull request.
+A ZIP in the inbox is reviewed in place, its matches shown as `x.zip/<file>` (see ingest).
 
 | Verdict | Meaning | Labels | Auto-merge |
 |---|---|---|---|
-| `ready` | everything valid (new matches, or extras that enrich existing ones), only `inbox/` changed, rights box ticked | `ready`, `auto-merge` | yes |
+| `ready` | everything valid (new matches, or extras that enrich existing ones), only `inbox/` changed, rights box ticked (or the rights statement of a `CONTRIBUTION.md`, which the Contribute page writes into its ZIP) | `ready`, `auto-merge` | yes |
 | `needs-fix` | an error, the rights box not ticked, more than 500 matches | `needs-fix` | no |
 | `needs-review` | valid, but it changes files outside `inbox/`, or contains an illegal play that was made (`V-ILLEGAL`) | `needs-review` | no |
 | `needs-confirmation` | valid except that a match can only be added **partially** (some games cannot be read) and the contributor has not agreed yet: the comment shows what would be kept, the errors (to fix the file instead), how to agree (`{"accept": "partial"}` in the match's `.bgdb.json`) and the `.mat` that would be stored | `needs-confirmation`, `partial` | no |
@@ -311,7 +317,7 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bg-db` (`../<name>`); commits there use the git identity of the `bg-db` repository. Both change
 `sources.json` without committing it: review it and commit it in `bg-db`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v4] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v5] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bg-db` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
@@ -323,7 +329,7 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bg-db-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v4` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v4`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v5` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v5`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |

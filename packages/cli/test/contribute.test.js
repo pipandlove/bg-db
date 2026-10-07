@@ -88,15 +88,15 @@ test('extras typed on the page: a YouTube link and tags are validated with the r
   assert.deepEqual(cm.parseExtras({}, config), { links: [], tags: [], problems: [] });
 });
 
-test('the files to hand over: renamed originals, a sidecar only when there is something to add, a README; duplicates and errors are left out', () => {
+test('the files to hand over: renamed originals, a sidecar only when there is something to add, a CONTRIBUTION.md with the rights; duplicates and errors are left out', () => {
   const items = cm.prepare([file(`${CH}.txt`, 'c.txt'), file(`${CH}.sgf`, 'c.sgf'), file('foxamon/tester_vs_Osprey12_2026-08-10.mat', 'a.MAT'), { name: 'bad.txt', bytes: new TextEncoder().encode('x') }], { config, known: new Map() });
   const files = cm.packageFiles(items, (base) => (base.startsWith("chouehandle") ? cm.parseExtras({ video: 'https://youtu.be/dQw4w9WgXcQ', tags: 'online' }, config) : { links: [], tags: [] }));
-  assert.deepEqual(files.map((f) => f.name).sort(), ['README.txt', 'chouehandle-vs-Bot1-undated.bgdb.json', 'chouehandle-vs-Bot1-undated.sgf', 'chouehandle-vs-Bot1-undated.txt', 'tester-vs-Osprey12-undated.mat']);
+  assert.deepEqual(files.map((f) => f.name).sort(), ['CONTRIBUTION.md', 'chouehandle-vs-Bot1-undated.bgdb.json', 'chouehandle-vs-Bot1-undated.sgf', 'chouehandle-vs-Bot1-undated.txt', 'tester-vs-Osprey12-undated.mat']);
   const side = JSON.parse(files.find((f) => f.name.endsWith('.bgdb.json')).bytes);
   assert.deepEqual(side, { links: [{ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }], tags: ['online'] });
   assert.equal(cm.packageFiles([items.find((i) => i.res.status === 'error')]).length, 0, 'nothing to send for an invalid file');
   // what is handed over is accepted by the tools again: groups of the same name, the same identifier
-  const regrouped = groupFiles(files.filter((f) => f.name !== 'README.txt').map((f) => ({ name: f.name, bytes: typeof f.bytes === 'string' ? new TextEncoder().encode(f.bytes) : f.bytes, dir: '' })));
+  const regrouped = groupFiles(files.filter((f) => f.name !== 'CONTRIBUTION.md').map((f) => ({ name: f.name, bytes: typeof f.bytes === 'string' ? new TextEncoder().encode(f.bytes) : f.bytes, dir: '' })));
   const re = regrouped.map((g) => analyzeGroup(g, { config, known: new Map() }));
   assert.deepEqual(re.map((r) => r.status), ['new', 'new']);
   assert.deepEqual(re.map((r) => r.hash16).sort(), items.filter((i) => i.res.status === 'new').map((i) => i.res.hash16).sort());
