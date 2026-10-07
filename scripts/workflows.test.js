@@ -94,6 +94,8 @@ test('review-publish: runs after validate in the context of the base repository,
   assert.ok(!/working-directory: pr\b/.test(t) && !/node pr\//.test(t) && !/bash pr\//.test(t) && !/\.\/pr\//.test(t), 'nothing is run from pr/');
   assert.ok(!/download-artifact/.test(t), 'no artifact of the pull request is trusted');
   assert.ok(!/repository: \$\{\{ github\.event\.workflow_run\.head_repository/.test(t) && !/allow-unsafe-pr-checkout/.test(t), 'the pull request is never checked out (checkout refuses a fork in a workflow_run, rightly)');
+  assert.ok(!/commits\/\$HEAD_SHA\/pulls/.test(t), '"the pull requests of a commit" finds nothing for a fork\'s commit');
+  assert.match(t, /pulls\?state=open[^\n]*awk -v s="\$HEAD_SHA" '\$2 == s/, 'the open pull request whose last commit was checked');
   assert.match(t, /HEAD_REPO: \$\{\{ github\.event\.workflow_run\.head_repository\.full_name \}\}/, 'its name only reaches the shell through an environment variable');
   const fetch = t.slice(t.indexOf('The files the pull request adds to inbox/'), t.indexOf('- name: Review'));
   assert.match(fetch, /case "\$F" in inbox\/\*\) ;; \*\) continue ;; esac/, 'only files under inbox/ are fetched');

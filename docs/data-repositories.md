@@ -256,6 +256,7 @@ The tags so far:
 | `v4` | 2026-10-07 | review-publish merges the pull request itself (only the commit it checked) instead of turning on auto-merge, so the data repository needs no branch rule, which refused the ingest's commits. A data repository moving to `v4` removes its branch rule on `master` |
 | `v5` | 2026-10-07 | the review and the ingest accept the Contribute page's ZIP uploaded as it is (it was found empty: "no match file was found under inbox/"), and its rights statement (`CONTRIBUTION.md`) counts like the ticked box. Nothing to change in a data repository but the tag |
 | `v6` | 2026-10-07 | review-publish no longer checks out the pull request (GitHub refused a fork's code in a `workflow_run`): it downloads the files the pull request adds under `inbox/` through the API, and takes the data and configuration from the default branch. Nothing to change in a data repository but the tag |
+| `v7` | 2026-10-07 | review-publish finds the pull request of a fork's commit (GitHub's "pull requests of a commit" returns none for it, and the run stopped quietly): it takes the open pull request whose last commit was checked, and warns when there is none. Nothing to change in a data repository but the tag |
 
 ## 8. The next data repository, and the switch
 
