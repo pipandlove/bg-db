@@ -184,8 +184,8 @@ Every numbered requirement of the specification, with the file that defines it. 
 | [CTB-13](10-contribution.md#CTB-13) | Metadata (event, date, location, player aliases) is inferred from headers, file names and previous contributions; the contributor can correc... |
 | [CTB-14](10-contribution.md#CTB-14) | A single checkbox states the rights declaration (“I have the right to share this under the database licence”); the licence and a short priva... |
 | [CTB-15](10-contribution.md#CTB-15) | The hand-over uses one of the following transports, in this order of preference, selected automatically by size and capability: |
-| [CTB-20](10-contribution.md#CTB-20) | The issue form ([Appendix E](90-appendices.md)) accepts a pasted transcript in any supported text format and optional free-text notes. A bot... |
-| [CTB-21](10-contribution.md#CTB-21) | If the pasted text cannot be parsed, the bot replies in the issue with the first error position and does not open a pull request; editing th... |
+| [CTB-20](10-contribution.md#CTB-20) | The issue form ([Appendix E](90-appendices.md)) takes the ZIP of the Contribute page dropped into it, and the rights box. A bot creates a br... |
+| [CTB-21](10-contribution.md#CTB-21) | If the submission cannot be used, the bot replies in the issue with the first error position and does not open a pull request; editing the i... |
 | [CTB-30](10-contribution.md#CTB-30) | The repository’s inbox/README.md contains a three-line instruction and a direct link to the upload page. The pull request template is reduce... |
 | [CTB-40](10-contribution.md#CTB-40) | The CLI bundles the validator, normalizer, importers and exporters, runs offline, and prints the same messages as the website and the bot. |
 | [CTB-41](10-contribution.md#CTB-41) | bgdb submit creates the fork and branch if needed, commits the files to inbox/, and opens the pull request, with a dry-run mode. |

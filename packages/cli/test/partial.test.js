@@ -12,7 +12,7 @@ import { pathToFileURL } from 'node:url';
 import { FIXTURES } from '../../core/test/helpers.js';
 import { groupFiles, analyzeGroup, readMatch, matchHash16 } from '@bgdb/core';
 import { main } from '../src/cli.js';
-import { reviewInbox, classify, renderComment, issueToInbox } from '../src/review.js';
+import { reviewInbox, classify, renderComment } from '../src/review.js';
 
 const tmpSite = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-partial-site-'));
 fs.cpSync(path.join(FIXTURES, '..', 'site', 'js'), path.join(tmpSite, 'js'), { recursive: true });
@@ -101,21 +101,6 @@ test('review: "needs-confirmation" until the contributor agrees; the comment sho
   const d2 = classify(r2, { body });
   assert.deepEqual([d2.verdict, d2.autoMerge, d2.labels], ['ready', true, ['ready', 'auto-merge', 'partial']]);
   assert.match(renderComment(r2, d2), /will be added \*\*partially\*\* \(you agreed\)/);
-});
-
-test('issue form: shown first; with "Add it partially" ticked, the file is written with its acceptance', () => {
-  const FORM = (text, partial) => `### Match transcript\n\n${text}\n\n### Event or site (optional)\n\n_No response_\n\n### Rights\n\n- [x] I have the right to share this under the CC0 public-domain dedication.\n\n### Partial match\n\n- [${partial ? 'x' : ' '}] Add it partially if some games cannot be read.`;
-  const inbox = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-partial-issue-'));
-  const no = issueToInbox({ body: FORM(BROKEN, false), number: 7, inbox, config });
-  assert.deepEqual([no.ok, no.partial], [false, true]);
-  assert.match(no.comment, /can be added \*\*partially\*\*/);
-  assert.match(no.comment, /tick \*\*"Add it partially"\*\*/);
-  assert.match(no.comment, /; \[ResultOnly "Game 4"\]/);
-  assert.equal(fs.readdirSync(inbox).length, 0, 'nothing written');
-  const yes = issueToInbox({ body: FORM(BROKEN, true), number: 7, inbox, config });
-  assert.deepEqual([yes.ok, yes.partial], [true, true]);
-  assert.deepEqual(fs.readdirSync(inbox).sort(), ['issue-7.bgdb.json', 'issue-7.txt']);
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(inbox, 'issue-7.bgdb.json'), 'utf8')), { accept: 'partial' });
 });
 
 test('Contribute page: a partial match is named but sent only when its box is ticked, with the acceptance in its .bgdb.json', () => {

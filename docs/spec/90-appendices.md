@@ -79,29 +79,28 @@
     }
 
 
-# Appendix E: Example: issue form for “Paste a match”
+# Appendix E: Example: the “Submit a match” issue form
 
     name: Submit a match
-    description: Paste a match transcript. A bot will check it and open a pull request.
-    title: "Match: "
+    description: Drop the ZIP made by the Contribute page of the site. A bot checks it, adds your matches, and answers here.
+    title: "Matches"
     labels: ["submission"]
     body:
       - type: textarea
         id: transcript
         attributes:
-          label: Match transcript
-          description: Paste the text of the match (MAT, or other supported format).
+          label: Your matches
+          description: Drag the ZIP from the Contribute page into this box (a line with its name appears; that is normal).
         validations: { required: true }
-      - type: input
-        id: event
-        attributes: { label: Event or site (optional) }
       - type: checkboxes
         id: rights
         attributes:
           label: Rights
           options:
-            - label: I have the right to share this under the database licence.
+            - label: I have the right to share this under the CC0 public-domain dedication.
               required: true
+
+The form of the data repositories is `templates/data-repo/.github/ISSUE_TEMPLATE/submit-match.yml`. Until tools v13 it also took a pasted match ([decision 0025](../decisions/0025-online-players-otb-names-and-erasure.md)).
 
 
 # Appendix F: Example: workflow skeletons

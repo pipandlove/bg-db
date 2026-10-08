@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { analyzeGroup, readMatch, writeMat, readZip } from '@bgdb/core';
+import { analyzeGroup, readZip } from '@bgdb/core';
 import { collectGroups } from './ingest.js';
 import { listShards, loadHashIndex, readErased } from './store.js';
 import { diffEnrichment, readEnrichment, readLocalMeta, ID_RE } from './enrich.js';
@@ -181,14 +181,14 @@ export function renderComment(report, decision, { author = null, welcome = false
   return out.length > 60000 ? `${out.slice(0, 59900)}\n\n(truncated)` : out;
 }
 
-// ------------------------------------------------------------------ issue form -> inbox file (spec C2, "paste a match")
+// ------------------------------------------------------------------ issue form -> inbox file (spec CTB-20: the ZIP of the Contribute page dropped into the form)
 
 /** a file dropped into a box of an issue: GitHub stores it and writes its link there (a public repository's files can be read without a login) */
 const ATTACHMENT_RE = /https:\/\/github\.com\/user-attachments\/files\/\d+\/[^\s()<>\[\]"'?#]+/g;
 
 /**
  * The sections of an issue created from an issue form: "### Label" followed by the answer. The first box ("Your matches", formerly "Match
- * transcript") holds either the ZIP of the Contribute page, dropped there (its link, in attachments), or the pasted text of one match.
+ * transcript") holds the ZIP of the Contribute page, dropped there (its link, in attachments); any other text in it is only reported.
  */
 export function parseIssueBody(body) {
   const sections = {};
@@ -202,7 +202,7 @@ export function parseIssueBody(body) {
   const clean = (v) => (v === '_No response_' ? '' : v);
   return {
     transcript: clean(transcript), attachments, zips: attachments.filter((u) => /\.zip$/i.test(u)),
-    event: clean(find('event')), rights: rightsDeclared(find('rights') || body), acceptPartial: /-\s*\[[xX]\]\s*Add it partially/i.test(find('partial')),
+    rights: rightsDeclared(find('rights') || body),
   };
 }
 
@@ -237,10 +237,8 @@ export async function downloadAttachment(url, { fetchFn = globalThis.fetch, maxB
   return { bytes };
 }
 
-const tagValue = (s) => s.replace(/["\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
-
 /**
- * Turn an issue into the file of a pull request. Nothing is written when the match is not valid.
+ * Turn an issue into the file of a pull request: the ZIP dropped into it, when its review allows. Nothing is written otherwise.
  * @returns {{ok:boolean, file?:string, errors:object[], comment:string}}
  */
 export function issueToInbox({ body, number, inbox, config, data = 'data', zip = null }) {
@@ -250,39 +248,13 @@ export function issueToInbox({ body, number, inbox, config, data = 'data', zip =
   }
   const p = parseIssueBody(body);
   if (p.attachments.length) return zipToInbox({ p, number, inbox, config, data, zip });
-  const errors = [];
-  if (!p.rights) errors.push({ code: 'V-RIGHTS', message: 'The rights box of the form is not ticked.', hint: 'Edit the issue and tick "I have the right to share this".' });
-  if (!p.transcript) errors.push({ code: 'V-FORMAT', message: 'The match transcript is empty.', hint: 'Drop the ZIP of the Contribute page into the first box, or paste the text of the match there.' });
-  let text = p.transcript;
-  let partial = null;
-  if (errors.length === 0) {
-    let first = readMatch(text, { videoHosts: config.videoHosts });
-    if (!first.ok) {
-      // some games cannot be read: the match may still be added partially, if the contributor agrees (decision 0021)
-      const s = readMatch(text, { videoHosts: config.videoHosts, salvage: true });
-      if (s.ok) {
-        partial = { notes: s.warnings.filter((w) => /the moves cannot be read|the file stops in the middle of this game/.test(w.message)), errors: first.errors, normalised: writeMat(s.match) };
-        first = s;
-      }
-    }
-    if (!first.ok) errors.push(...first.errors);
-    else if (p.event && !first.match.event) text = `; [Event "${tagValue(p.event)}"]\n${text}`;
-  }
-  if (errors.length) {
-    const lines = errors.map((e) => `- \`${e.code}\`${e.line ? ` (line ${e.line})` : ''}: ${md(e.message)}${e.hint ? ` *How to fix:* ${md(e.hint)}` : ''}`);
-    return { ok: false, errors, comment: `${MARKER}\nThanks for the submission. I could not use it yet:\n\n${lines.join('\n')}\n\nEdit the issue (the first box) and I will check it again.` };
-  }
-  if (partial && !p.acceptPartial) {
-    const notes = partial.notes.map((n) => `- ${md(n.message)}`).join('\n');
-    const fix = partial.errors.slice(0, 3).map((e) => `- \`${e.code}\`${e.line ? ` (line ${e.line})` : ''}: ${md(e.message)}${e.hint ? ` *How to fix:* ${md(e.hint)}` : ''}`).join('\n');
-    const mat = partial.normalised.length <= PREVIEW_MAX ? `\n\n<details><summary>The match as it would be stored (.mat)</summary>\n\n\`\`\`\n${partial.normalised.replace(/```/g, "'''").trimEnd()}\n\`\`\`\n</details>` : '';
-    return { ok: false, partial: true, errors: partial.errors, comment: `${MARKER}\nThanks for the submission. Some games cannot be read, but the rest of the match is clear: it can be added **partially**.\n\n${notes}${mat}\n\nTo agree, edit the issue and tick **"Add it partially"**. Or fix the transcript, and the whole match will be added:\n\n${fix}` };
-  }
-  const file = path.join(inbox, `issue-${number}.txt`);
-  fs.mkdirSync(inbox, { recursive: true });
-  fs.writeFileSync(file, `${text.replace(/\r\n/g, '\n').trimEnd()}\n`);
-  if (partial) fs.writeFileSync(path.join(inbox, `issue-${number}.bgdb.json`), `${JSON.stringify({ accept: 'partial' }, null, 2)}\n`);
-  return { ok: true, file, errors: [], ...(partial ? { partial: true } : {}), comment: `${MARKER}\nThanks! The match is valid${partial ? ' and you agreed to add it partially' : ''}. I am opening a pull request with it; it is checked again there and merged automatically if everything is fine.` };
+  // no ZIP: a pasted match is never used (decision 0025). Its names were not replaced, and a pull request would put them in a commit of
+  // this repository before the review could refuse them.
+  const pasted = p.transcript !== '';
+  return { ok: false, errors: [{ code: 'V-FORMAT', message: pasted ? 'A match pasted as text is not taken: only the ZIP of the Contribute page is.' : 'The first box is empty: no ZIP was dropped into it.' }],
+    comment: `${MARKER}\nThanks for the submission. ${pasted
+      ? 'I only take the ZIP of the **Contribute page** of the site, not a match pasted as text: the page replaces the player names before anything is published, and a pasted match still holds them. This issue is public, so please **edit it and delete the pasted text**, then'
+      : 'The first box is empty. Check your matches on the **Contribute page** of the site, download its ZIP, then edit this issue and'} drop the ZIP into the first box. I will check it again.` };
 }
 
 const FIX_ZIP = 'Fix it on the Contribute page of the site and download the ZIP again. Then edit this issue: delete the line of the old ZIP from the first box, drop the new ZIP there, and save. I will check it again.';

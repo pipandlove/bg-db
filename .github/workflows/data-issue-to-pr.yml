@@ -1,6 +1,6 @@
 # Reusable (decision 0024): called by the "issue-to-pr" workflow of a data repository.
 # An issue made with the "Submit a match" form becomes a pull request that adds its matches to inbox/: the ZIP of the Contribute page dropped
-# into the form (the way the site shows, with no fork and no branch), or the pasted text of one match.
+# into the form (the way the site shows, with no fork and no branch). A match pasted as text is refused (decision 0025, tools v13).
 # The text of the issue is untrusted data: it is read from an environment variable (never put into a shell command), checked by the tools
 # at the pinned tag with the data and configuration of the default branch, and written to a file named after the issue number. A dropped ZIP
 # is downloaded by the tools, from GitHub's own attachment links only, with a size limit, and read defensively like any ZIP of the inbox.

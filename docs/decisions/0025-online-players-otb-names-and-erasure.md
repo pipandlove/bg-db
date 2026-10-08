@@ -31,7 +31,8 @@ Contribute page, shown in full only while the browser has no key, which says wha
   `bgdb-key-1:<64 hex>`. Tools v11 wrote `anon-` before it; the owner dropped it on 2026-10-08 (it only took room in the list). A name is
   recognised as a pseudonym when its two words come from the lists, with or without that prefix.
 - **The pull request route** stays open for maintainers and tests, but the guides now tell contributors to send the ZIP of the page only;
-  the issue form no longer offers to paste a match.
+  the issue form no longer offers to paste a match. Since tools v13 the bot refuses a pasted match, even a valid one (its pull request would
+  have put the original names in a commit of the data repository before the review refused them), and the form asks only for the ZIP and the rights.
 
 - **Over the board and online platforms** (the open question of point 5): a match declared over the board whose `Site` or event names an
   online platform is refused (`V-ORIGIN`). The declaration does not win: an online match is sent with pseudonyms.

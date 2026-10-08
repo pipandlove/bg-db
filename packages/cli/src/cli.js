@@ -57,7 +57,7 @@ export const COMMANDS = {
     usage: 'bgdb review [--inbox inbox] [--data data] [--changed file] [--body file] [--author name] [--welcome] [--report file] [--comment file] [--config file]',
   },
   'from-issue': {
-    summary: 'turn a "Submit a match" issue (the ZIP of the Contribute page dropped into it, or a pasted match) into a file of inbox/ (used by the issue workflow)',
+    summary: 'turn a "Submit a match" issue (the ZIP of the Contribute page dropped into it; a pasted match is refused) into a file of inbox/ (used by the issue workflow)',
     usage: 'bgdb from-issue --body file --number n [--inbox inbox] [--data data] [--result file] [--config file]',
   },
   'hide-names': {

@@ -57,7 +57,7 @@ function fakeFetch(data, { status = 200, host = 'objects.githubusercontent.com',
 
 // ------------------------------------------------------------------------------------------------ the form
 
-test('the form: a dropped ZIP is found by its link, under the new label and the old one; a pasted match is still a transcript', () => {
+test('the form: a dropped ZIP is found by its link, under the new label and the old one; other text in the first box is the transcript (reported, never used)', () => {
   const p = parseIssueBody(FORM(DROPPED()));
   assert.deepEqual([p.attachments, p.zips, p.rights], [[URL1], [URL1], true]);
   assert.deepEqual(parseIssueBody(FORM(DROPPED()).replace('### Your matches', '### Match transcript')).zips, [URL1]);

@@ -289,7 +289,7 @@ Turns an issue made with the "Submit a match" form into a file of the inbox, if 
 ([contributing-flow.md](contributing-flow.md)). **The ZIP of the Contribute page dropped into the form** (the way the site shows): its link is read from the first box, it is downloaded (GitHub's attachment links only, over https, at most 25 MB),
 read like any ZIP of the inbox and reviewed against `--data` as the pull request will be. Only a contribution that can be merged, or that a maintainer must look at, becomes `inbox/issue-<n>.zip`;
 for errors, a match that can only be added partially, or nothing new, the answer says what to do on the Contribute page and the issue is edited with the new ZIP. The rights come from the box of the form or the
-statement in the ZIP. **A pasted match** becomes `inbox/issue-<n>.txt` when it is valid. The "Event" answer and the "Add it partially" box of older forms are still read (the event is added as a header only when the match has none); the form of the template no longer asks them, since a match is checked and accepted partially on the Contribute page (decision 0025). A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
+statement in the ZIP. **A match pasted as text** is never used, even a valid one (tools v13, decision 0025): its names were not replaced, and a pull request would put them in a commit of the data repository before the review refuses them; the answer asks to delete the text from the public issue and to drop the ZIP instead. A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
 comment is the answer to post on the issue. Exit code 1 when the issue cannot be used, 2 for bad usage.
 
 ## bgdb hide-names
@@ -370,7 +370,7 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bgdb` (`../<name>`); commits there use the git identity of the `bgdb` repository. Both change
 `sources.json` without committing it: review it and commit it in `bgdb`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v12] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v13] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bgdb` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
@@ -382,7 +382,7 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bgdb-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v12` | the tag of `bgdb` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v12`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v13` | the tag of `bgdb` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v13`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |

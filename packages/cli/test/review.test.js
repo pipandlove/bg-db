@@ -177,44 +177,28 @@ test('bgdb review: prints the verdict, writes the report and the comment, exits 
 });
 
 // ---- issue form -> file
-const FORM = (t, ev = '_No response_', box = '- [x] I have the right to share this under the CC0 public-domain dedication.') =>
-  `### Match transcript\n\n${t}\n\n### Event or site (optional)\n\n${ev}\n\n### Rights\n\n${box}`;
+const FORM = (t, box = '- [x] I have the right to share this under the CC0 public-domain dedication.') => `### Match transcript\n\n${t}\n\n### Rights\n\n${box}`;
 
-test('issue form body: the transcript, the optional event and the rights box are found, in any line-ending style, fenced or not', () => {
+test('issue form body: the first box and the rights box are found, in any line-ending style, fenced or not', () => {
   const text = fs.readFileSync(path.join(FIXTURES, FIX.foxamon), 'utf8').trim();
-  const p = parseIssueBody(FORM(text, 'Club night'));
-  assert.equal(p.transcript, text);
-  assert.deepEqual([p.event, p.rights], ['Club night', true]);
+  const p = parseIssueBody(FORM(text));
+  assert.deepEqual([p.transcript, p.rights], [text, true]);
   assert.equal(parseIssueBody(FORM(text).replace(/\n/g, '\r\n')).transcript, text.replace(/\r\n/g, '\n'));
   assert.equal(parseIssueBody(FORM('```\n' + text + '\n```')).transcript, text);
-  const none = parseIssueBody(FORM(text));
-  assert.equal(none.event, '');
-  assert.equal(parseIssueBody(FORM(text, undefined, '- [ ] I have the right to share this under the CC0 public-domain dedication.')).rights, false);
-  assert.deepEqual(parseIssueBody(''), { transcript: '', attachments: [], zips: [], event: '', rights: false, acceptPartial: false });
+  assert.equal(parseIssueBody(FORM(text, '- [ ] I have the right to share this under the CC0 public-domain dedication.')).rights, false);
+  assert.deepEqual(parseIssueBody(''), { transcript: '', attachments: [], zips: [], rights: false });
 });
 
-test('issue -> inbox: a valid match is written as issue-N.txt (with the event as a header when the file has none); nothing is written otherwise', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-issue-'));
-  const inbox = path.join(root, 'inbox');
+test('issue -> inbox: a match pasted as text is never used, even a valid one, and the reply asks to delete it from the public issue (decision 0025)', () => {
+  const inbox = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-issue-')), 'inbox');
   const text = fs.readFileSync(path.join(FIXTURES, FIX.foxamon), 'utf8').trim();
-  const ok = issueToInbox({ body: FORM(text, 'Club "night"\nsecond line'), number: 42, inbox, config });
-  assert.equal(ok.ok, true);
-  assert.equal(path.basename(ok.file), 'issue-42.txt');
-  const written = fs.readFileSync(ok.file, 'utf8');
-  assert.ok(written.startsWith('; [Event "Club night second line"]\n'), 'quotes and line breaks removed from the header');
-  assert.match(ok.comment, /opening a pull request/);
-  const bad = issueToInbox({ body: FORM('this is not a match'), number: 43, inbox, config });
-  assert.equal(bad.ok, false);
-  assert.equal(bad.errors[0].code, 'V-FORMAT');
-  assert.match(bad.comment, /could not use it yet/);
-  assert.ok(!fs.existsSync(path.join(inbox, 'issue-43.txt')));
-  const noRights = issueToInbox({ body: FORM(text, undefined, '- [ ] I have the right'), number: 44, inbox, config });
-  assert.equal(noRights.errors[0].code, 'V-RIGHTS');
-  assert.ok(!fs.existsSync(path.join(inbox, 'issue-44.txt')));
-  assert.equal(issueToInbox({ body: FORM(''), number: 45, inbox, config }).errors.find((e) => e.code === 'V-FORMAT').message, 'The match transcript is empty.');
-  // an event already in the file is kept
-  const withEvent = issueToInbox({ body: FORM(fs.readFileSync(path.join(FIXTURES, FIX.remarks), 'utf8'), 'Other event'), number: 46, inbox, config });
-  assert.ok(!fs.readFileSync(withEvent.file, 'utf8').startsWith('; [Event "Other event"]'));
+  const pasted = issueToInbox({ body: FORM(text), number: 42, inbox, config });
+  assert.deepEqual([pasted.ok, pasted.errors[0].code], [false, 'V-FORMAT']);
+  assert.match(pasted.comment, /not a match pasted as text/);
+  assert.match(pasted.comment, /delete the pasted text/);
+  const empty = issueToInbox({ body: FORM(''), number: 43, inbox, config });
+  assert.match(empty.errors[0].message, /no ZIP/);
+  assert.ok(!fs.existsSync(inbox), 'nothing written');
 });
 
 test('bgdb from-issue: exit codes and the result file', async () => {
@@ -223,11 +207,10 @@ test('bgdb from-issue: exit codes and the result file', async () => {
   const text = fs.readFileSync(path.join(FIXTURES, FIX.foxamon), 'utf8').trim();
   fs.writeFileSync(body, FORM(text));
   const result = path.join(root, 'result.json');
-  const c = capture();
-  assert.equal(await main(['from-issue', '--body', body, '--number', '7', '--inbox', path.join(root, 'inbox'), '--result', result, '--config', path.join(root, 'none.json')], c.io), 0);
-  assert.equal(JSON.parse(fs.readFileSync(result, 'utf8')).ok, true);
-  fs.writeFileSync(body, FORM('nope'));
-  assert.equal(await main(['from-issue', '--body', body, '--number', '8', '--inbox', path.join(root, 'inbox'), '--result', result, '--config', path.join(root, 'none.json')], capture().io), 1);
-  assert.equal(JSON.parse(fs.readFileSync(result, 'utf8')).ok, false);
+  assert.equal(await main(['from-issue', '--body', body, '--number', '7', '--inbox', path.join(root, 'inbox'), '--result', result, '--config', path.join(root, 'none.json')], capture().io), 1, 'a pasted match: refused');
+  const r = JSON.parse(fs.readFileSync(result, 'utf8'));
+  assert.equal(r.ok, false);
+  assert.match(r.comment, /delete the pasted text/);
+  assert.ok(!fs.existsSync(path.join(root, 'inbox')));
   assert.equal(await main(['from-issue'], capture().io), 2);
 });
