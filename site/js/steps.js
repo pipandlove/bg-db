@@ -13,11 +13,11 @@ import { el, toDom } from './svg.js';
  */
 export const SHOTS = {
   form: {
-    src: 'img/guide/form.png', w: 1022, h: 861,
+    src: 'img/guide/form.png', w: 1022, h: 687,
     alt: 'The "Submit a match" form on GitHub, empty: a title field that says "Matches", a short explanation, the box "Your matches", the rights box and the green Create button.',
     marks: [
-      { box: [52, 108, 961, 32], text: 'The title is filled in for you.' },
-      { box: [53, 340, 960, 178], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
+      { box: [53, 91, 960, 32], text: 'The title is filled in for you.' },
+      { box: [54, 323, 959, 178], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
     ],
   },
   dropped: {
@@ -26,11 +26,11 @@ export const SHOTS = {
     marks: [{ box: [25, 117, 652, 22], text: 'This line means that the ZIP is uploaded. It looks odd, but it is right: leave it as it is.' }],
   },
   send: {
-    src: 'img/guide/send.png', w: 975, h: 250,
+    src: 'img/guide/send.png', w: 975, h: 125,
     alt: 'The bottom of the form: the rights box ticked and the green Create button.',
     marks: [
-      { box: [6, 26, 494, 22], text: 'Tick the rights box.' },
-      { box: [861, 208, 105, 32], text: 'Press Create.' },
+      { box: [6, 33, 495, 22], text: 'Tick the rights box.' },
+      { box: [861, 87, 105, 31], text: 'Press Create.' },
     ],
   },
   reply: {
