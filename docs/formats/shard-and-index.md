@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Formats](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Formats](README.md)
 
 # Shard, metadata and index files (version 1.0)
 
@@ -78,8 +78,8 @@ checks the list (`checkSources` in `packages/core/src/sources.js`, the same code
 ```json
 { "schema": "1.0", "name": "BGDB", "license": "CC0-1.0",
   "sources": [
-    { "name": "bg-db-data-1", "url": "https://owner.github.io/bg-db-data-1/", "repository": "owner/bg-db-data-1", "state": "archived" },
-    { "name": "bg-db-data-2", "url": "https://owner.github.io/bg-db-data-2/", "repository": "owner/bg-db-data-2", "defaultBranch": "master", "state": "current" } ] }
+    { "name": "bgdb-data-1", "url": "https://owner.github.io/bgdb-data-1/", "repository": "owner/bgdb-data-1", "state": "archived" },
+    { "name": "bgdb-data-2", "url": "https://owner.github.io/bgdb-data-2/", "repository": "owner/bgdb-data-2", "defaultBranch": "master", "state": "current" } ] }
 ```
 
 Sources are listed oldest first. `url` is where the repository publishes its `registry.json`: `https://`, `http://localhost` (local tests), or a path relative to the page; it ends with `/`.
@@ -127,7 +127,7 @@ The replay data is **not published**: the browser reads the `.mat`, adds the sid
 ```
 
 Points are in the mover's own numbering (24 = back point, 25 = bar, 0 = off); `hit` is 1 when the move hit a blot.
-Positions are not stored: the replay recomputes them with `@bg-db/core` (rules.js).
+Positions are not stored: the replay recomputes them with `@bgdb/core` (rules.js).
 
 ## The normalised `.mat` ("bgdb" dialect)
 

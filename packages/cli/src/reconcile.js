@@ -7,7 +7,7 @@ import path from 'node:path';
 import {
   parseMatchBytes, readMatchBytes, contentHash, rollTokens, compareRolls, diffText, sameMatchClusters, keeperOf, RANK_TEXT,
   cleanHeaderMetadata, parseSidecar, normalizeName, sha256Hex, decodeText, META_KEYS,
-} from '@bg-db/core';
+} from '@bgdb/core';
 import { matchPaths } from './store.js';
 
 /**

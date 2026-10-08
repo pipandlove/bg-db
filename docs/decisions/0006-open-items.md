@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
 
 # 0006 - Open items before going public
 
@@ -10,8 +10,8 @@
 4. ~~XGID bar convention~~ confirmed with a real XG string (decision 0004); the beaver bit of field 8 is still unverified.
 5. **Jacoby rule in money games**: implemented when the file says `Jacoby On` and exercised by three XG money games, but none ends by a bear-off with an unturned cube and a gammon. A resignation file with an unturned cube would also help.
 6. **Hash length**: 16 hex characters (64 bits); CI must detect collisions (ID-04).
-7. ~~Name of the project and repositories~~ decided (2026-10-07): the project and its tools repository are `bg-db`, the data repositories `bg-db-data-1`, `bg-db-data-2`, ...
+7. ~~Name of the project and repositories~~ decided (2026-10-07): the project and its tools repository are `bgdb`, the data repositories `bgdb-data-1`, `bgdb-data-2`, ... Renamed on 2026-10-08 from `bg-db`, `bg-db-data-1`, ... to `bgdb`, `bgdb-data-1`, ...: one spelling for the project, its command (`bgdb`) and its configuration (`bgdb.config.json`). GitHub redirects the old repository addresses, but not the Pages sites, nor the reusable workflows: data repositories call the tools from tag `v10` on.
 8. **`.xg` reader**: worth doing only if the analysis data is wanted (spec LM-03, RP-04).
 9. ~~Actions pinned to commit hashes~~ done (2026-10-07, spec SC-04): every action of the workflows names a commit hash, with its version in a comment, so that
    a changed tag of an action cannot change what runs; `scripts/workflows.test.js` checks it. How to update a pin: [contributing-flow.md](../contributing-flow.md#safety-why-two-workflows).
-10. **Players' names and erasure** (2026-10-08): online handles under pseudonyms, real names over the board, `bgdb erase`, and the clean-up of the `bg-db-data-1` history. Proposed, undecided: [decision 0025](0025-online-players-otb-names-and-erasure.md).
+10. **Players' names and erasure** (2026-10-08): online handles under pseudonyms, real names over the board, `bgdb erase`, and the clean-up of the `bgdb-data-1` history. Proposed, undecided: [decision 0025](0025-online-players-otb-names-and-erasure.md).

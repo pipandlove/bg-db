@@ -40,7 +40,7 @@ test('every page starts with a line that leads back to the project README and th
   for (const p of allPages()) {
     const first = fs.readFileSync(p, 'utf8').split('\n')[0];
     const up = path.relative(path.dirname(p), REPO).split(path.sep).join('/') || '.';
-    assert.ok(first.startsWith(`> [bg-db](${up}/README.md)`), `${rel(p)} does not start with the line back to the README`);
+    assert.ok(first.startsWith(`> [bgdb](${up}/README.md)`), `${rel(p)} does not start with the line back to the README`);
     if (p !== path.join(DOCS, 'README.md')) assert.match(first, /\[Documentation\]\((?:\.\.\/)?README\.md\)/, `${rel(p)}: no link to the documentation index`);
   }
 });

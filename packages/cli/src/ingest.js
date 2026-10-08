@@ -19,7 +19,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { groupFiles, analyzeGroup, buildMeta, sha256Hex, displayKey, CANONICAL_VERSION, readZip, decodeText } from '@bg-db/core';
+import { groupFiles, analyzeGroup, buildMeta, sha256Hex, displayKey, CANONICAL_VERSION, readZip, decodeText } from '@bgdb/core';
 import { listShards, writeShardInfo, matchPaths, attachmentPath, loadHashIndex, shardIdOf, treeDigest, readMetas, nextShardNumber, repoSize, repoState } from './store.js';
 import { enrichMatch, readLocalMeta, listEnrichments, currentMeta, ID_RE } from './enrich.js';
 import { reconcileInbox } from './reconcile.js';

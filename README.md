@@ -1,4 +1,4 @@
-# bg-db
+# bgdb
 
 An open, federated, static backgammon game database: download, search and replay matches in the browser,
 grow the collection by pull request.
@@ -20,14 +20,14 @@ node packages/cli/bin/bgdb.js check path/to/match.mat
 
 ### Add matches and build the site folder
 
-The matches are not in this repository: they live in **data repositories** (`bg-db-data-1`, ...), listed in `sources.json`
-([decision 0024](docs/decisions/0024-data-repositories.md), [docs/growing.md](docs/growing.md)). Check out the current one next to `bg-db` (none exists yet: [docs/data-repositories.md](docs/data-repositories.md) says how to make the first, put it on GitHub with its secrets and settings, and later switch to the next), and work from there:
+The matches are not in this repository: they live in **data repositories** (`bgdb-data-1`, ...), listed in `sources.json`
+([decision 0024](docs/decisions/0024-data-repositories.md), [docs/growing.md](docs/growing.md)). Check out the current one next to `bgdb` (none exists yet: [docs/data-repositories.md](docs/data-repositories.md) says how to make the first, put it on GitHub with its secrets and settings, and later switch to the next), and work from there:
 
 ```sh
-cd ../bg-db-data-1
+cd ../bgdb-data-1
 cp my-matches/* inbox/                  # .mat / .txt / .sgf / .xg; a text file and its .sgf/.xg share the same name
 npm run ingest -- --contributor me      # validates, de-duplicates, files them into data/0001 (use --dry-run first)
-npm run build                           # writes dist/ : registry, catalog, manifest, match files, attachments, and the site of ../bg-db
+npm run build                           # writes dist/ : registry, catalog, manifest, match files, attachments, and the site of ../bgdb
 npm run serve                           # http://localhost:8080 (serves dist/)
 ```
 
@@ -71,8 +71,8 @@ ERROR  (broken.mat)
 
 ```sh
 # extract the zip anywhere, then, from inside your repository:
-node scripts/update-from-zip.mjs ../path/to/extracted/bg-db            # dry run: lists what would change
-node scripts/update-from-zip.mjs ../path/to/extracted/bg-db --apply    # copies new and changed files
+node scripts/update-from-zip.mjs ../path/to/extracted/bgdb            # dry run: lists what would change
+node scripts/update-from-zip.mjs ../path/to/extracted/bgdb --apply    # copies new and changed files
 ```
 
 Options: `--delete` (also remove files that no longer exist upstream), `--force` (skip the clean-git-tree check),

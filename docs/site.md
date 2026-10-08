@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # The site (milestone M3)
 
@@ -6,12 +6,12 @@ A static page that loads the database from the files next to it, lets you search
 no build step, no server. It is built into `dist/` by `bgdb build` and works from any static host ([deploy.md](deploy.md)).
 
 ```
-cd ../bg-db-data-1   # a data repository checked out next to bg-db (decision 0024)
-npm run build        # its matches and the site of ../bg-db (ingest first if it is empty: see commands.md)
+cd ../bgdb-data-1   # a data repository checked out next to bgdb (decision 0024)
+npm run build        # its matches and the site of ../bgdb (ingest first if it is empty: see commands.md)
 npm run serve        # http://localhost:8080 (serves dist/)
 ```
 
-Published, the site of `bg-db` reads the data repositories listed in `sources.json` (`bgdb build --sources sources.json`), each published by its own Pages site.
+Published, the site of `bgdb` reads the data repositories listed in `sources.json` (`bgdb build --sources sources.json`), each published by its own Pages site.
 
 ## What it does
 

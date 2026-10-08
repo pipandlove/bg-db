@@ -1,5 +1,5 @@
 {
-  "name": "@bg-db/cli",
+  "name": "@bgdb/cli",
   "version": "0.3.0",
   "description": "BGDB command line: check, serve (submit/import/build come later)",
   "type": "module",
@@ -7,7 +7,7 @@
     "bgdb": "bin/bgdb.js"
   },
   "dependencies": {
-    "@bg-db/core": "0.3.0"
+    "@bgdb/core": "0.3.0"
   },
   "license": "MIT"
 }

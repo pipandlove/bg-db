@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
 
 # 0025 - Online players under pseudonyms, real names over the board, erasing a match
 
@@ -13,7 +13,7 @@ choosing. It is not legal advice.
 
 - **Decision 0010 keeps handles.** The original idea was that searching the matches of a player is a purpose of the database, and that a
   person who objects uses the takedown path ([spec RP-03](../spec/11-rights-governance.md#RP-03), [CR-02](../spec/10-contribution.md#CR-02)).
-- **What happened.** On 2026-10-07 the first real contributions reached the public data repository `bg-db-data-1` ([decision 0024](0024-data-repositories.md)):
+- **What happened.** On 2026-10-07 the first real contributions reached the public data repository `bgdb-data-1` ([decision 0024](0024-data-repositories.md)):
   two matches against the owner's daughter (a home game, `Site "HedgeHog"`), and two online matches whose files named the other player by their
   platform handle and named the platform (`provenance.site: "OpenGammon"`; a BackgammonHub `.sgf` attachment carrying both handles). The opponents had not
   agreed to anything. The two online matches were erased on 2026-10-08 (see *Done so far*).
@@ -90,7 +90,7 @@ anyone being able to tie that opponent to their account on the platform.
 
 A file is public as soon as it is submitted:
 - a pull request keeps its commits under `refs/pull/<n>/head` forever, even after a force push of the branch;
-- a ZIP dropped into an issue gets a public URL (`user-attachments`), and the issue title holds the players' names (issues #9 and #11 of `bg-db-data-1`
+- a ZIP dropped into an issue gets a public URL (`user-attachments`), and the issue title holds the players' names (issues #9 and #11 of `bgdb-data-1`
   are titled with handles);
 - the bot's comment quotes the names.
 
@@ -181,13 +181,13 @@ For each of Backgammon Heroes, OpenGammon, Backgammon Galaxy, BackgammonHub, Nex
 
 ## Done so far
 
-- **2026-10-08.** In `bg-db-data-1`, the two online matches were erased by hand (open shard, so no digest): `0001/6b01e8a3a4af0956` (with its `.sgf`) and
+- **2026-10-08.** In `bgdb-data-1`, the two online matches were erased by hand (open shard, so no digest): `0001/6b01e8a3a4af0956` (with its `.sgf`) and
   `0001/fc7ff6f26a3e9b78`; `shard.json` counts are 2 matches, 2 games. The two Hadar vs Sam matches stay. They are home games between the owner and
   their daughter, kept at the owner's choice.
 - **2026-10-08, clean-up.** The repository was deleted and recreated, as the cheapest way to remove everything GitHub kept:
-  - `pipandlove/bg-db-data-1` and the fork `sambot1981/bg-db-data-1` (which held the old history) were deleted. Their issues, the pull request refs
+  - `pipandlove/bgdb-data-1` and the fork `sambot1981/bgdb-data-1` (which held the old history) were deleted. Their issues, the pull request refs
     and the attachments went with them.
-  - The repository was recreated, public, with one commit holding the two Hadar vs Sam matches (`npm run publish-data-repo -- bg-db-data-1 --public`).
+  - The repository was recreated, public, with one commit holding the two Hadar vs Sam matches (`npm run publish-data-repo -- bgdb-data-1 --public`).
     Its Pages site has the same address, so `sources.json` is unchanged.
   - The `BGDB_BOT_TOKEN` secret had to be set again ([data-repositories.md](../data-repositories.md#3-the-two-secrets)).
   - Copies made before 2026-10-08 (clones, caches) can't be reached.

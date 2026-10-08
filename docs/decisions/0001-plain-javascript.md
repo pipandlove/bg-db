@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
 
 # 0001 - Plain JavaScript, no dependencies, no build step
 

@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
 
 # 0019 - How a game ends: body, tail, settlement
 

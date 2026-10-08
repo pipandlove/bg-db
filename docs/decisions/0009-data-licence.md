@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Decisions](README.md)
 
 # 0009 - Data licence: CC0 1.0
 

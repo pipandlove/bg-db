@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # How a game ends when nobody bears off or drops
 

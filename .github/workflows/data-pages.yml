@@ -1,5 +1,5 @@
 # Reusable (decision 0024): called by the "pages" workflow of a data repository. Builds its data/ with the tools at the pinned tag and
-# publishes it on GitHub Pages: registry, shards, catalogs, match files, overlays. The site itself is published by bg-db, which reads every
+# publishes it on GitHub Pages: registry, shards, catalogs, match files, overlays. The site itself is published by bgdb, which reads every
 # data repository listed in its sources.json.
 name: data-pages
 on:

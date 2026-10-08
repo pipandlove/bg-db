@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # Testing locally
 
@@ -49,13 +49,13 @@ rm -rf /tmp/bgtest                                    # undo everything
 
 ## 3. In a data repository, undone with git
 
-`bg-db` holds no data ([decision 0024](decisions/0024-data-repositories.md)): the matches are in a data repository checked out next to it (`../bg-db-data-1`), whose
-`package.json` runs the tools of `../bg-db`. Run these from that repository. What the commands change:
+`bgdb` holds no data ([decision 0024](decisions/0024-data-repositories.md)): the matches are in a data repository checked out next to it (`../bgdb-data-1`), whose
+`package.json` runs the tools of `../bgdb`. Run these from that repository. What the commands change:
 
 | Command | Writes | Deletes |
 |---|---|---|
 | `npm run ingest` | `data/0001/...` (matches, attachments, `shard.json`) | the ingested and duplicate files from `inbox/` (its `README.md` stays) |
-| `npm run build` | `dist/` only (ignored by git), with the site of `../bg-db` | `dist/` first |
+| `npm run build` | `dist/` only (ignored by git), with the site of `../bgdb` | `dist/` first |
 
 1. Start from a clean tree: `git status` must show nothing (commit or stash first).
 2. Copy files into `inbox/`, then `npm run ingest -- --dry-run`, then `npm run ingest -- --contributor me`, then `npm run build`, then `npm run serve`.
@@ -88,11 +88,11 @@ All of these work in a scratch folder: put `--inbox /tmp/bgtest/inbox --data /tm
 | anonymising | `npm run bgdb -- anonymize fixtures --recursive` (report), `--check` (exit code 1 if work remains), `--write` (rewrite) |
 | enriching a match | `bgdb enrich 0001/<hash> --link https://youtu.be/... --tags final` then `build`: the match shows the video in the list (`has:video`) and on its page; the shard folder is unchanged (`git status` shows only `data/enrichments/`). Or put an SGF of an existing match in the inbox: "enriched" |
 | sealing and the faster build | `ingest --max-matches 2` with 3 files: shard 0001 is sealed and records a digest; `build` says "1 read in full, 2 trusted by their seal"; edit a file of the sealed shard: the build refuses; `bgdb verify` names it |
-| making and switching data repositories | in a scratch copy: `mkdir /tmp/w && cp -r ../bg-db /tmp/w/ && cd /tmp/w/bg-db && rm sources.json`, then `npm run new-data-repo -- d1 --local`, ingest a few files in `/tmp/w/d1` (`npm run ingest` there) and commit, `npm run new-data-repo -- d2 --local`, `npm run switch-data-repo -- --local`: `d1` is closed and sealed, `d2` has `data/hashes/` and is `current` in `sources.json`. `scripts/data-repos.test.js` does the same |
+| making and switching data repositories | in a scratch copy: `mkdir /tmp/w && cp -r ../bgdb /tmp/w/ && cd /tmp/w/bgdb && rm sources.json`, then `npm run new-data-repo -- d1 --local`, ingest a few files in `/tmp/w/d1` (`npm run ingest` there) and commit, `npm run new-data-repo -- d2 --local`, `npm run switch-data-repo -- --local`: `d1` is closed and sealed, `d2` has `data/hashes/` and is `current` in `sources.json`. `scripts/data-repos.test.js` does the same |
 | moving a shard | `bgdb split 0001 --to /tmp/other/data --base https://example.org/data/0001/ --remove`, see [growing.md](growing.md); then `ingest` a duplicate of a moved match: it is still recognised |
 | the update script | extract a zip next to the repository and run `node scripts/update-from-zip.mjs ../extracted` (dry run), then `--apply` |
 | the requirements index | `npm run spec-index` after editing `docs/spec`; `npm test` fails if it is stale |
-| the site under a sub-path | `mkdir -p /tmp/bgsub && cp -r /tmp/bgtest/dist /tmp/bgsub/bg-db && npm run bgdb -- serve /tmp/bgsub` and open `http://localhost:8080/bg-db/` |
+| the site under a sub-path | `mkdir -p /tmp/bgsub && cp -r /tmp/bgtest/dist /tmp/bgsub/bgdb && npm run bgdb -- serve /tmp/bgsub` and open `http://localhost:8080/bgdb/` |
 
 ## Checking a contribution before sending it
 

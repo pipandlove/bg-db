@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { analyzeGroup, readMatch, writeMat, readZip } from '@bg-db/core';
+import { analyzeGroup, readMatch, writeMat, readZip } from '@bgdb/core';
 import { collectGroups } from './ingest.js';
 import { listShards, loadHashIndex } from './store.js';
 import { diffEnrichment, readEnrichment, readLocalMeta, ID_RE } from './enrich.js';

@@ -1,13 +1,13 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # Growing the database: enriching, scaling, and adding a repository
 
-**Where the data lives** ([decision 0024](decisions/0024-data-repositories.md)): `bg-db` holds the tools and the site, **no data**. The matches live in a series of
-**data repositories** (`bg-db-data-1`, `-2`, ...), listed in `sources.json`; exactly one is `current` and takes the contributions, the site reads them all. A data
+**Where the data lives** ([decision 0024](decisions/0024-data-repositories.md)): `bgdb` holds the tools and the site, **no data**. The matches live in a series of
+**data repositories** (`bgdb-data-1`, `-2`, ...), listed in `sources.json`; exactly one is `current` and takes the contributions, the site reads them all. A data
 repository warns at 800 MB and stops at 950 MB (`repoPolicy`, an issue opened by its ingest workflow), and the maintainer moves to the next one with two commands
-([data-repositories.md](data-repositories.md)). Each data repository has its own `inbox/`, open shard, sealed shards, enrichments and hash files, and runs the workflows of `bg-db` at a pinned tag.
+([data-repositories.md](data-repositories.md)). Each data repository has its own `inbox/`, open shard, sealed shards, enrichments and hash files, and runs the workflows of `bgdb` at a pinned tag.
 
-Locally, a data repository is checked out next to `bg-db` (`../bg-db-data-1`); its `package.json` runs the tools of `../bg-db` (`npm run ingest`, `npm run build`,
+Locally, a data repository is checked out next to `bgdb` (`../bgdb-data-1`); its `package.json` runs the tools of `../bgdb` (`npm run ingest`, `npm run build`,
 `npm run serve`), and its build includes the site, so that `npm run build && npm run serve` there shows the whole database.
 
 ## 1. Enriching: what can be added to what is already there
@@ -66,7 +66,7 @@ How the build stays fast:
 
 The procedures (the first data repository, its secrets and settings, the next one and the switch, undoing) are in
 **[data-repositories.md](data-repositories.md)**. In short: the ingest of the current repository opens an issue when it passes 800 MB; then
-`npm run new-data-repo -- bg-db-data-2` makes the next one, and `npm run switch-data-repo` (run until it says it is done) closes, seals and archives the current
+`npm run new-data-repo -- bgdb-data-2` makes the next one, and `npm run switch-data-repo` (run until it says it is done) closes, seals and archives the current
 one and makes the next one current.
 
 ## 4. Moving one sealed shard by hand (`bgdb split`)

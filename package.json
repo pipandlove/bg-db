@@ -1,5 +1,5 @@
 {
-  "name": "bg-db",
+  "name": "bgdb",
   "private": true,
   "version": "0.0.0",
   "description": "Open, federated, static backgammon game database - tooling and site",

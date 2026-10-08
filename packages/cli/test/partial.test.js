@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { FIXTURES } from '../../core/test/helpers.js';
-import { groupFiles, analyzeGroup, readMatch, matchHash16 } from '@bg-db/core';
+import { groupFiles, analyzeGroup, readMatch, matchHash16 } from '@bgdb/core';
 import { main } from '../src/cli.js';
 import { reviewInbox, classify, renderComment, issueToInbox } from '../src/review.js';
 

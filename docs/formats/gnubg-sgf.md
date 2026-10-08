@@ -1,4 +1,4 @@
-> [bg-db](../../README.md) · [Documentation](../README.md) · [Formats](README.md)
+> [bgdb](../../README.md) · [Documentation](../README.md) · [Formats](README.md)
 
 # GNU Backgammon SGF (`GM[6]`)
 

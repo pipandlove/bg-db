@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { allTextFixtures, FIXTURES } from '../../core/test/helpers.js';
-import { groupFiles, analyzeGroup, fileKind, matchHash16, parseSidecar } from '@bg-db/core';
+import { groupFiles, analyzeGroup, fileKind, matchHash16, parseSidecar } from '@bgdb/core';
 
 // the site modules import ../lib/core: load them from a built copy
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-contrib-'));
@@ -113,9 +113,9 @@ test('a declared illegal play survives the hand-over (the sidecar keeps the decl
 });
 
 test('the submission form on GitHub: one link, its title naming the matches; none without a repository', () => {
-  const reg = { repository: 'pipandlove/bg-db', defaultBranch: 'master' };
+  const reg = { repository: 'pipandlove/bgdb', defaultBranch: 'master' };
   const one = cm.prepare([file('xg-text/me-XG_Roller__03-10-2026__2.txt', 'a.txt')], { config, known: new Map() });
-  assert.equal(cm.issueFormLink(reg, one), 'https://github.com/pipandlove/bg-db/issues/new?template=submit-match.yml&title=Matches%3A%20me%20vs%20XG%20Roller%2B%202026-10-03');
+  assert.equal(cm.issueFormLink(reg, one), 'https://github.com/pipandlove/bgdb/issues/new?template=submit-match.yml&title=Matches%3A%20me%20vs%20XG%20Roller%2B%202026-10-03');
   const two = cm.prepare([file('foxamon/tester_vs_Osprey12_2026-08-10.mat', 'a.mat'), file(LINNET, 'b.txt')], { config, known: new Map() });
   assert.match(decodeURIComponent(cm.issueFormLink(reg, two)), /title=Matches: tester vs Osprey12 and 1 more$/, 'a match file without a date gives none');
   assert.match(cm.issueFormLink(reg, []), /&title=Matches$/);

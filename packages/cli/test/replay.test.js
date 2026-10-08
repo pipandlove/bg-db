@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { readMatch, toBgdbJson, buildMeta, matchHash16, parseXGID, parseGnubgId, positionKey, startPosition, pipCount, checkPosition, CANONICAL_VERSION } from '@bg-db/core';
+import { readMatch, toBgdbJson, buildMeta, matchHash16, parseXGID, parseGnubgId, positionKey, startPosition, pipCount, checkPosition, CANONICAL_VERSION } from '@bgdb/core';
 import { allTextFixtures, FIXTURES } from '../../core/test/helpers.js';
 
 const SITE_JS = path.join(FIXTURES, '..', 'site', 'js');

@@ -1,5 +1,5 @@
 {
-  "name": "@bg-db/core",
+  "name": "@bgdb/core",
   "version": "0.3.0",
   "description": "BGDB core: logical model, parsers, rules, validation, identity (no dependencies, browser + Node)",
   "type": "module",

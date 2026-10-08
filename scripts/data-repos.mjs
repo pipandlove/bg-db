@@ -14,8 +14,8 @@
  *                 is empty (run it again until then), seals its last shard, copies the hash files of its shards into the next repository,
  *                 archives it on GitHub once its Pages site is up to date, and makes the next one current in sources.json.
  *
- * Data repositories are checked out next to bg-db (../<name>). Commits there use the git identity of the bg-db repository. sources.json is
- * changed but not committed: review it and commit it in bg-db, which publishes the site. --local touches nothing on GitHub (no gh, no push,
+ * Data repositories are checked out next to bgdb (../<name>). Commits there use the git identity of the bgdb repository. sources.json is
+ * changed but not committed: review it and commit it in bgdb, which publishes the site. --local touches nothing on GitHub (no gh, no push,
  * no pull); --dry-run prints the steps without doing them. Exit code: 0 done, 1 waiting (run again later), 2 error. Guide: docs/data-repositories.md.
  */
 import fs from 'node:fs';
@@ -27,7 +27,7 @@ import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHas
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v9';
+export const DEFAULT_TOOLS_REF = 'v10';
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
 /** run a program; the tests replace it to answer for gh */
@@ -40,7 +40,7 @@ class Stop extends Error {
   constructor(message, code = 2) { super(message); this.code = code; }
 }
 
-/** the context shared by both commands: bg-db, its sources.json, the folder next to it, and how to run programs */
+/** the context shared by both commands: bgdb, its sources.json, the folder next to it, and how to run programs */
 function context(o) {
   const tools = path.resolve(o.tools ?? REPO);
   const out = o.out ?? ((s) => console.log(s));
@@ -124,9 +124,9 @@ const GUIDE = 'docs/data-repositories.md';
 function ghReady(c, toolsRepository, toolsRef) {
   if (c.run('gh', ['--version']).status !== 0) throw new Stop(`gh (the GitHub command line) is not installed: see ${GUIDE}, "Before you start". Or add --local to do everything but the GitHub part.`);
   if (c.run('gh', ['auth', 'status']).status !== 0) throw new Stop(`gh is not logged in: run "gh auth login" (see ${GUIDE}, "Before you start")`);
-  if (c.run('gh', ['repo', 'view', toolsRepository, '--json', 'name']).status !== 0) throw new Stop(`${toolsRepository} (the tools, named by "repository" in bgdb.config.json) is not on GitHub, or this login cannot see it: put bg-db on GitHub first (${GUIDE}, "Before you start")`);
+  if (c.run('gh', ['repo', 'view', toolsRepository, '--json', 'name']).status !== 0) throw new Stop(`${toolsRepository} (the tools, named by "repository" in bgdb.config.json) is not on GitHub, or this login cannot see it: put bgdb on GitHub first (${GUIDE}, "Before you start")`);
   c.tagOk = c.run('gh', ['api', `repos/${toolsRepository}/git/ref/tags/${toolsRef}`]).status === 0;
-  if (!c.tagOk) c.warnings.push(`there is no tag ${toolsRef} on GitHub in ${toolsRepository}: the workflows of the data repository call ${toolsRepository}@${toolsRef} and fail until it exists. In bg-db: git tag ${toolsRef} && git push origin ${toolsRef}`);
+  if (!c.tagOk) c.warnings.push(`there is no tag ${toolsRef} on GitHub in ${toolsRepository}: the workflows of the data repository call ${toolsRepository}@${toolsRef} and fail until it exists. In bgdb: git tag ${toolsRef} && git push origin ${toolsRef}`);
 }
 
 /**
@@ -183,14 +183,14 @@ export async function newDataRepo(o) {
   try {
     c = context(o);
     const { name } = o;
-    if (!/^[A-Za-z0-9._-]{1,100}$/.test(name ?? '')) throw new Stop('Give the name of the new data repository, for example: npm run new-data-repo -- bg-db-data-2');
+    if (!/^[A-Za-z0-9._-]{1,100}$/.test(name ?? '')) throw new Stop('Give the name of the new data repository, for example: npm run new-data-repo -- bgdb-data-2');
     const list = c.sources?.sources ?? [];
     if (list.some((s) => s.name === name)) throw new Stop(`${name} is already listed in sources.json`);
     const pending = list.find((s) => s.state === 'next');
     if (pending) throw new Stop(`${pending.name} is already the next data repository: run "npm run switch-data-repo" first`);
     const toolsConfig = loadConfig(path.join(c.tools, 'bgdb.config.json'));
     const toolsRepository = o.toolsRepository ?? toolsConfig.repository;
-    if (!toolsRepository) throw new Stop(`no "repository" in ${path.join(c.tools, 'bgdb.config.json')}: it names the repository of the tools ("owner/bg-db")`);
+    if (!toolsRepository) throw new Stop(`no "repository" in ${path.join(c.tools, 'bgdb.config.json')}: it names the repository of the tools ("owner/bgdb")`);
     const current = list.find((s) => s.state === 'current');
     const owner = o.owner ?? (current?.repository ?? toolsRepository).split('/')[0];
     const repository = `${owner}/${name}`;
@@ -217,7 +217,7 @@ export async function newDataRepo(o) {
     c.out(`${repository}: a data repository whose first shard is ${values.firstShardId}, with the tools ${toolsRepository}@${toolsRef}${c.dryRun ? ' (dry run: nothing is done)' : ''}`);
 
     c.step(`make ${dir} from templates/data-repo`, () => { fs.mkdirSync(dir, { recursive: true }); renderTemplate(path.join(c.tools, 'templates/data-repo'), dir, values); });
-    c.step(`commit it as ${id.name} <${id.email}> (the identity of bg-db)`, () => {
+    c.step(`commit it as ${id.name} <${id.email}> (the identity of bgdb)`, () => {
       c.must('git', ['init', '-q', '-b', 'master', dir]);
       c.must('git', ['-C', dir, 'config', 'user.name', id.name]);
       c.must('git', ['-C', dir, 'config', 'user.email', id.email]);
@@ -236,8 +236,8 @@ export async function newDataRepo(o) {
     }
     for (const w of c.warnings) c.out(`warning: ${w}`);
     c.out(state === 'current'
-      ? `\n${name} is the current data repository. Commit sources.json in bg-db: the site reads ${name}, and the Contribute page sends to it.`
-      : `\n${name} is the next data repository: nothing changes for contributors yet. Commit sources.json in bg-db; when you decide, run: npm run switch-data-repo`);
+      ? `\n${name} is the current data repository. Commit sources.json in bgdb: the site reads ${name}, and the Contribute page sends to it.`
+      : `\n${name} is the next data repository: nothing changes for contributors yet. Commit sources.json in bgdb; when you decide, run: npm run switch-data-repo`);
     return 0;
   } catch (e) {
     if (!(e instanceof Stop)) throw e;
@@ -302,7 +302,7 @@ export async function switchDataRepo(o = {}) {
   let c;
   try {
     c = context(o);
-    if (!c.sources) throw new Stop('there is no sources.json in bg-db: make the first data repository with npm run new-data-repo');
+    if (!c.sources) throw new Stop('there is no sources.json in bgdb: make the first data repository with npm run new-data-repo');
     const cur = c.sources.sources.find((s) => s.state === 'current');
     const next = c.sources.sources.find((s) => s.state === 'next');
     if (!next) throw new Stop('sources.json has no "next" data repository: make it first with npm run new-data-repo -- <name>');
@@ -382,7 +382,7 @@ export async function switchDataRepo(o = {}) {
     // 6. the site reads both, and the Contribute page sends to the next one
     c.writeSources({ ...c.sources, sources: c.sources.sources.map((s) => (s.name === cur.name ? { ...s, state: 'archived' } : s.name === next.name ? { ...s, state: 'current' } : s)) });
     for (const w of c.warnings) c.out(`warning: ${w}`);
-    c.out(`\n${next.name} is now the current data repository. Commit sources.json in bg-db and publish the site: its Contribute page then sends to ${next.name}.`);
+    c.out(`\n${next.name} is now the current data repository. Commit sources.json in bgdb and publish the site: its Contribute page then sends to ${next.name}.`);
     return 0;
   } catch (e) {
     if (!(e instanceof Stop)) throw e;

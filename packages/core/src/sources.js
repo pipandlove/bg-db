@@ -2,8 +2,8 @@
  * sources.json: the data repositories a site reads (decision 0024). Shared by the tools (bgdb build checks it) and the site (which loads it).
  *
  *   { "schema": "1.0", "name": "BGDB", "license": "CC0-1.0",
- *     "sources": [ { "name": "bg-db-data-1", "url": "https://owner.github.io/bg-db-data-1/", "repository": "owner/bg-db-data-1", "defaultBranch": "master", "state": "archived" },
- *                  { "name": "bg-db-data-2", "url": "https://owner.github.io/bg-db-data-2/", "repository": "owner/bg-db-data-2", "state": "current" } ] }
+ *     "sources": [ { "name": "bgdb-data-1", "url": "https://owner.github.io/bgdb-data-1/", "repository": "owner/bgdb-data-1", "defaultBranch": "master", "state": "archived" },
+ *                  { "name": "bgdb-data-2", "url": "https://owner.github.io/bgdb-data-2/", "repository": "owner/bgdb-data-2", "state": "current" } ] }
  *
  * Sources are listed oldest first. `url` is where that repository publishes its registry.json: absolute, or relative to the page (ending with "/").
  * state: `current` takes the contributions (exactly one), `archived` is read-only but still read, `next` is created and not read yet.

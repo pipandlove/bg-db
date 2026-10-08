@@ -3,7 +3,7 @@
 #
 # Why a second workflow: a pull request from a fork gets a read-only token, so it cannot comment. This workflow runs in the context of the
 # base repository (with a write token) after "validate" has run. Safety (spec SC-01): it never trusts anything produced by the pull request.
-# It redoes the review itself, with the tools of bg-db at the pinned tag and the default branch of the data repository (its data, inbox and
+# It redoes the review itself, with the tools of bgdb at the pinned tag and the default branch of the data repository (its data, inbox and
 # configuration), on the files the pull request adds under inbox/, downloaded one by one through the API as data. The pull request is never
 # checked out (actions/checkout refuses a fork's code in a workflow_run, rightly) and nothing from it is ever executed.
 #

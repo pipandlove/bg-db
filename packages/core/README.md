@@ -1,9 +1,9 @@
-# @bg-db/core
+# @bgdb/core
 
 Dependency-free JavaScript (ES modules) that runs unchanged in the browser, in a Web Worker and in Node.
 
 ```js
-import { readMatch, matchHash16, toXGID, startPosition } from '@bg-db/core';
+import { readMatch, matchHash16, toXGID, startPosition } from '@bgdb/core';
 
 const r = readMatch(text);            // detects .mat dialects and GNU Backgammon SGF
 if (r.ok) console.log(matchHash16(r.match));

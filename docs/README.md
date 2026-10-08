@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · Documentation
+> [bgdb](../README.md) · Documentation
 
 # Documentation
 
@@ -34,7 +34,7 @@ Every page starts with a line that leads back here and to the [project README](.
 | Page | Content |
 |---|---|
 | [contributing-flow.md](contributing-flow.md) | How contributions flow: the Contribute page, issues, pull requests, the bot and its safety, GitHub settings, how to test the workflows ([CONTRIBUTING.md](../CONTRIBUTING.md) is the short version for contributors) |
-| [data-repositories.md](data-repositories.md) | **The maintainer's procedures** for data repositories: installing `gh`, putting `bg-db` on GitHub, the first data repository, the two secrets, the settings, working locally, a new version of the tools, the switch to the next repository, undoing, troubleshooting |
+| [data-repositories.md](data-repositories.md) | **The maintainer's procedures** for data repositories: installing `gh`, putting `bgdb` on GitHub, the first data repository, the two secrets, the settings, working locally, a new version of the tools, the switch to the next repository, undoing, troubleshooting |
 | [growing.md](growing.md) | Enriching, size and speed (measured), where the data lives, moving one shard by hand, reading XG files |
 
 ## Design

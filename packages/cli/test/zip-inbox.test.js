@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { pathToFileURL } from 'node:url';
-import { readZip, ZIP_LIMITS } from '@bg-db/core';
+import { readZip, ZIP_LIMITS } from '@bgdb/core';
 import { reviewInbox, classify } from '../src/review.js';
 import { ingest } from '../src/ingest.js';
 import { FIXTURES } from '../../core/test/helpers.js';

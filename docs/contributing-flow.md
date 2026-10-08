@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # The contribution flow (milestone M5)
 
@@ -17,16 +17,16 @@ same match again with such a file corrects a match that is already in the databa
 |---|---|---|
 | **The Contribute page** (`contribute.html` on the site) | most people | Step 0 says first that a free GitHub account is needed, with a button to GitHub's sign-up page and why. Then five numbered steps, each lit up in turn, with pictures of GitHub and red marks on what to click (the same steps, to read first: **How to contribute**, `guide.html`). 1. Drop the files (or paste the text): the page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, with a picture of the last position; add a YouTube link and tags if you want. 2. Tick the rights box and download the ZIP (it carries the rights statement, `CONTRIBUTION.md`). 3. Open the "Submit a match" form of the current data repository (title filled in). 4. Drop the ZIP into its first box, tick the rights box, press Create. 5. The bot does the rest (the issue route below). No fork, no branch, no pull request to handle. |
 | **A GitHub issue** ("Submit a match" form of the current data repository) | everyone with a GitHub account: no fork, no branch, no pull request to handle | Drop the ZIP of the Contribute page into the first box (GitHub stores it and writes a line with its link: that is normal), or paste the text of one match; tick the rights box; create the issue. A bot downloads the ZIP, checks it as the pull request will, and answers on the issue within a minute or two: what is new, what is already there, what to fix (then edit the issue with the new ZIP). When it can be added, it opens the pull request itself; after the merge and the ingest, it answers again on the issue with the links to the matches on the site. The issue's author is credited as the contributor. |
-| **A pull request** | people used to git | Add the files to `inbox/` of the current data repository and open a pull request. `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bg-db`) tells you beforehand what the bot will say. |
+| **A pull request** | people used to git | Add the files to `inbox/` of the current data repository and open a pull request. `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bgdb`) tells you beforehand what the bot will say. |
 
 Nothing has to be named in a special way, filled in, or organised: the database never asks for metadata that the file already contains. If something is wrong, the message says what, where and how to fix it.
 
 ## What happens to a pull request
 
-The workflows of a data repository are five short files that call the reusable workflows of `bg-db` (`.github/workflows/data-*.yml`) at the tag the data repository
-pins (`@v4`, for example): the tools that check and file matches are those of that tag, so a new release of `bg-db` changes nothing in a data repository until its tag is moved.
+The workflows of a data repository are five short files that call the reusable workflows of `bgdb` (`.github/workflows/data-*.yml`) at the tag the data repository
+pins (`@v4`, for example): the tools that check and file matches are those of that tag, so a new release of `bgdb` changes nothing in a data repository until its tag is moved.
 
-1. **`validate`** (workflow, read-only): reads the pull request's files as data, with the tools of `bg-db` at the pinned tag and the configuration of the **base branch**, and runs `bgdb review`. Its result is the status check "validate / validate" (it fails when a fix is needed).
+1. **`validate`** (workflow, read-only): reads the pull request's files as data, with the tools of `bgdb` at the pinned tag and the configuration of the **base branch**, and runs `bgdb review`. Its result is the status check "validate / validate" (it fails when a fix is needed).
 2. **`review-publish`** (workflow, runs in the base repository after `validate`): redoes the review itself, then posts **one comment** (updated in place), sets the **labels** and, when the verdict is `ready`, **merges** it (squash), only if its last commit is the one it checked, and with `BGDB_BOT_TOKEN`, so that the merge starts the ingest.
 3. No branch rule is involved: the review decides, and only people with write access can merge by hand.
 4. **`ingest`** (workflow on the default branch, one run at a time): runs `bgdb ingest --contributor <author>` on `inbox/`, commits `data/` (and empties `inbox/`), answers on the merged pull request and on the issue it came from with the links to the matches (`siteUrl` in `bgdb.config.json`), and optionally starts the publication of the site. The author is the one of the merged pull request; for a pull request the issue workflow opened (a branch `submission/issue-N` of the data repository), the author of that issue.
@@ -43,7 +43,7 @@ next to a download of the `.mat`; in the issue form, a box of its own.
 
 A pull request from a fork gets a read-only token and cannot comment; a workflow that runs with a write token must never run the pull request's code. So:
 
-- `validate` uses the plain `pull_request` event: a read-only token, the **tools come from `bg-db` at the pinned tag** and the configuration from the base branch (two more checkouts), the pull request is only data. A pull request cannot change how it is checked. The only secret it may use, `BGDB_TOOLS_TOKEN`, reads the tools while `bg-db` is private.
+- `validate` uses the plain `pull_request` event: a read-only token, the **tools come from `bgdb` at the pinned tag** and the configuration from the base branch (two more checkouts), the pull request is only data. A pull request cannot change how it is checked. The only secret it may use, `BGDB_TOOLS_TOKEN`, reads the tools while `bgdb` is private.
 - `review-publish` has the write token, but trusts **nothing** produced by the pull request: it does not read any artifact, finds the pull request number itself, never checks the pull request out, downloads only the files it adds under `inbox/` (as data, at the commit `validate` checked, with checked names), and redoes the review with the tools at the pinned tag and the data and configuration of the default branch.
 - No workflow puts untrusted text (issue, pull request description, branch name) into a shell command; it goes through environment variables (a test checks this). Only actions published by GitHub are used, each **pinned to a commit hash** with its version in a comment (`actions/checkout@11d5960...   # v4.4.0`, spec SC-04), so that a moved tag cannot change what runs; a test checks it. To update one: `git ls-remote --tags https://github.com/actions/checkout.git` lists each version with its commit (use the line ending in `^{}` when there is one), then change the hash and the comment everywhere it is used.
 - Text from files that ends up in a comment is escaped (no links, mentions, HTML or table breaks), and the site shows data only as text.
@@ -52,7 +52,7 @@ A pull request from a fork gets a read-only token and cannot comment; a workflow
 ## What the maintainer sets up once (GitHub)
 
 For each data repository: the settings (squash merging, no branch rule, the label `submission`, Pages) and the two secrets
-(`BGDB_BOT_TOKEN`, and `BGDB_TOOLS_TOKEN` while `bg-db` is private). `npm run new-data-repo` and `npm run publish-data-repo` make the settings and say what they
+(`BGDB_BOT_TOKEN`, and `BGDB_TOOLS_TOKEN` while `bgdb` is private). `npm run new-data-repo` and `npm run publish-data-repo` make the settings and say what they
 could not do; what each one is for, how to check it, and how to make the secrets, step by step: [data-repositories.md](data-repositories.md#3-the-two-secrets).
 Two defaults are right as they are: Settings > Actions > General > "Fork pull request workflows" (a maintainer approves the first run of a first-time contributor,
 which CONTRIBUTING.md says), and "Allow GitHub Actions to create and approve pull requests", which stays off: the issue workflow opens its pull requests with `BGDB_BOT_TOKEN`, without which the issue route fails.
@@ -65,14 +65,14 @@ The Contribute page takes the repository of the issue form from the `current` en
 The tools behind the workflows (review, verdicts, comment, issue conversion, the Contribute page) have automated tests, and the workflow files are checked for their safety rules and their YAML syntax. **The workflows themselves have not
 run on GitHub**: that needs the repository. Before relying on them, test them in a scratch repository:
 
-1. Follow [data-repositories.md](data-repositories.md) sections 1 to 4: `bg-db` on GitHub with its tag, a data repository (a scratch name is fine), its secrets and settings.
+1. Follow [data-repositories.md](data-repositories.md) sections 1 to 4: `bgdb` on GitHub with its tag, a data repository (a scratch name is fine), its secrets and settings.
 2. From a second branch, add a valid match to `inbox/` and open a pull request: expect the check `validate / validate`, then a comment, the labels `ready` and `auto-merge`, a merge within a few minutes, and a commit "ingest: matches added by ..." on `master` with the match in `data/`.
 3. Open a pull request with a broken file: expect `needs-fix`, a failing check and no merge; fix it with a new commit: expect the same comment to be updated and the merge.
 4. Open a pull request that also edits a file outside `inbox/`: expect `needs-review` and no merge.
 5. Open a pull request with a match of several games whose game 2 has an impossible move: expect `needs-confirmation`, the labels `needs-confirmation` and `partial`, the `.mat` in the comment, and no merge; add `{"accept": "partial"}` in its `.bgdb.json`: expect `ready` and a merge, and the match stored with game 2 kept by its result.
 6. Create an issue with the "Submit a match" form (label `submission`), with the ZIP of the Contribute page dropped into the first box: expect an answer on the issue (the table of its matches), a pull request, its merge, and a second answer on the issue with the links to the matches. A ZIP with a broken file: expect the answer to say what to fix and no pull request; edit the issue with a fixed ZIP: expect a new answer and the pull request.
 7. From a fork (another account), open a pull request: expect to approve the first run, and the comment to appear.
-8. After an ingest: expect the `pages` workflow to publish `data/` (with `PUBLISH_AFTER_INGEST`), and the site of `bg-db`, built with `sources.json`, to list the match.
+8. After an ingest: expect the `pages` workflow to publish `data/` (with `PUBLISH_AFTER_INGEST`), and the site of `bgdb`, built with `sources.json`, to list the match.
 9. Make a second scratch data repository and switch to it (`npm run switch-data-repo`, run until it says it is done): expect a pull request to the first one to get the verdict `closed`, the first one archived, and a duplicate of its match sent to the second one recognised.
 
 If a step fails, the workflow log names the step. Typical causes are in [data-repositories.md](data-repositories.md#10-troubleshooting): a missing secret, a branch rule on `master`, squash merging not allowed.

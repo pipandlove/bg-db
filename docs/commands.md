@@ -1,4 +1,4 @@
-> [bg-db](../README.md) · [Documentation](README.md)
+> [bgdb](../README.md) · [Documentation](README.md)
 
 # Command reference
 
@@ -7,8 +7,8 @@ Run `node packages/cli/bin/bgdb.js help` (or `npm run bgdb -- help`) for the sho
 `bgdb <command> --help` for one usage line. Paths are relative to the repository root.
 
 Typical flow: `check` a file, put it in `inbox/`, `ingest`, `build`, `serve`. Since [decision 0024](decisions/0024-data-repositories.md) `inbox/` and `data/` live in a
-**data repository** (`bg-db-data-1`, ...) checked out next to `bg-db`: run the commands from there (its `package.json` has `npm run ingest`, `build`, `serve`, `check` and
-`bgdb`, which call `../bg-db`), or from `bg-db` with `--inbox ../bg-db-data-1/inbox --data ../bg-db-data-1/data --config ../bg-db-data-1/bgdb.config.json`.
+**data repository** (`bgdb-data-1`, ...) checked out next to `bgdb`: run the commands from there (its `package.json` has `npm run ingest`, `build`, `serve`, `check` and
+`bgdb`, which call `../bgdb`), or from `bgdb` with `--inbox ../bgdb-data-1/inbox --data ../bgdb-data-1/data --config ../bgdb-data-1/bgdb.config.json`.
 
 | npm script | Runs |
 |---|---|
@@ -115,7 +115,7 @@ thousands of files).
 |---|---|---|
 | `firstShard` | none | the number of this repository's first shard. Shard numbers are global: without it, a new shard gets the number after every shard this repository knows of (its own, the hash files in `data/hashes/` copied from earlier repositories, `externalShards`). A `firstShard` that would reuse one of those numbers stops the ingest (exit 2) |
 | `repoPolicy` | `{"warnMB": 800, "stopMB": 950}` | the size of the repository, measured at each ingest: the larger of `data/` and the packed git history. Above `warnMB` the ingest says it is time to prepare the next repository (and the workflow opens an issue); above `stopMB`, even during a run, it **adds nothing more**: new matches stay in the inbox (`waiting`) for the next repository |
-| `siteUrl` | none | the site of the database (`https://<owner>.github.io/bg-db/`, written by `new-data-repo`): the answer of `--comment` links each match there (`#m=0001/...`); without it, it gives the identifiers only |
+| `siteUrl` | none | the site of the database (`https://<owner>.github.io/bgdb/`, written by `new-data-repo`): the answer of `--comment` links each match there (`#m=0001/...`); without it, it gives the identifiers only |
 | `closed` | `false` | `true`: the repository takes no more contributions. The review answers `closed`, the issue form refuses; the ingest still files what was merged into the open shard, but opens no new shard (the matches wait) |
 
 The output ends with the size: `repository: 812.4 MB (data 790.2 MB, git 812.4 MB), above 800 MB: time to prepare the next data repository`. Matches that wait are not an error (exit 0): what was added is committed.
@@ -218,7 +218,7 @@ Reads **every match of the shards in full** (parse, validate, compare with the m
 
 Moves a **sealed** shard to the data folder of another repository (see [growing.md](growing.md#4-moving-one-sealed-shard-by-hand-bgdb-split)). It verifies the shard (and records its digest), writes `data/hashes/<id>.tsv` (the content hash of each match, so that `ingest`
 and `enrich` still know the moved matches), and copies the shard to `<folder>/<id>/`. With `--remove` it also deletes the shard here and adds it to `externalShards` in the configuration. `--base` is the **absolute address** (ending with `/`) where the other repository will publish the shard,
-for example `https://user.github.io/bg-db-data/data/0001/`. Refuses an open or unknown shard, a bad address, and a destination that is not empty. Exit code 1 when refused, 2 for bad usage.
+for example `https://user.github.io/bgdb-data/data/0001/`. Refuses an open or unknown shard, a bad address, and a destination that is not empty. Exit code 1 when refused, 2 for bad usage.
 
 ## bgdb review
 
@@ -302,7 +302,7 @@ Lists the commands, or prints the usage line of one. `bgdb <command> --help` doe
 
 `node scripts/update-from-zip.mjs <extracted-folder> [--repo <dir>] [--apply] [--delete] [--force]`
 
-Updates your local repository from a folder extracted from a new `bg-db.zip`. **Dry run by default**: it lists new, changed,
+Updates your local repository from a folder extracted from a new `bgdb.zip`. **Dry run by default**: it lists new, changed,
 removed and unchanged files. Details and safety rules are in the file header and in the README ("Updating from a new zip").
 
 | Option | Meaning |
@@ -319,29 +319,29 @@ Exit codes: 0 done or dry run, 2 bad usage or wrong project, 3 uncommitted chang
 ## scripts/data-repos.mjs
 
 The steps of [decision 0024](decisions/0024-data-repositories.md) that the maintainer takes, on their own machine with their own `gh` login (no workflow creates
-repositories). Data repositories are checked out next to `bg-db` (`../<name>`); commits there use the git identity of the `bg-db` repository. Both change
-`sources.json` without committing it: review it and commit it in `bg-db`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
+repositories). Data repositories are checked out next to `bgdb` (`../<name>`); commits there use the git identity of the `bgdb` repository. Both change
+`sources.json` without committing it: review it and commit it in `bgdb`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v9] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v10] [--first-shard n] [--public] [--local] [--dry-run]`
 
-First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bg-db` at the tag `--tools-ref`, `bgdb.config.json` with
+First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bgdb` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
-(and sets `PUBLISH_AFTER_INGEST`, and publishes it once), and, while `bg-db` is private, lets its workflows be called. It sets no branch rule: the bot's review decides the merge. It lists the new
+(and sets `PUBLISH_AFTER_INGEST`, and publishes it once), and, while `bgdb` is private, lets its workflows be called. It sets no branch rule: the bot's review decides the merge. It lists the new
 repository in `sources.json` as `current` if it is the first, else `next` (nothing changes for contributors yet). If the GitHub part stops half way, the folder and
 `sources.json` are kept, and `publish-data-repo` finishes it.
 
 | Option | Meaning |
 |---|---|
-| `<name>` | the repository, for example `bg-db-data-2` |
+| `<name>` | the repository, for example `bgdb-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v9` | the tag of `bg-db` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v9`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v10` | the tag of `bgdb` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v10`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |
 | `--dry-run` | print the steps, do nothing |
 
 A GitHub setting that is refused (Pages on a private repository of a free plan) is a warning that says what to do by hand, not a failure.
-Secrets cannot be made for you: the output warns about `BGDB_BOT_TOKEN` (pull requests made from issues) and, while `bg-db` is private, `BGDB_TOOLS_TOKEN`
+Secrets cannot be made for you: the output warns about `BGDB_BOT_TOKEN` (pull requests made from issues) and, while `bgdb` is private, `BGDB_TOOLS_TOKEN`
 when they are missing ([data-repositories.md](data-repositories.md#3-the-two-secrets)).
 
 `npm run publish-data-repo -- <name> [--public] [--dry-run]`
@@ -369,7 +369,7 @@ Exit codes of all three: 0 done, 1 waiting (run again later), 2 could not run (t
 | add an SGF with analysis to a match that is already in | `bgdb enrich <id> --sgf file.sgf`, or put the SGF in the inbox |
 | check that nothing in the shards is damaged | `bgdb verify` |
 | move a full shard to another repository | `bgdb split` ([growing.md](growing.md)) |
-| prepare the next data repository, then move to it | `npm run new-data-repo -- bg-db-data-2`, later `npm run switch-data-repo` ([data-repositories.md](data-repositories.md#8-the-next-data-repository-and-the-switch)) |
+| prepare the next data repository, then move to it | `npm run new-data-repo -- bgdb-data-2`, later `npm run switch-data-repo` ([data-repositories.md](data-repositories.md#8-the-next-data-repository-and-the-switch)) |
 | check my files before opening a pull request | put them in `inbox/`, run `npm run bgdb -- review`; or drop them on the Contribute page of the site |
 | publish the site | see [deploy.md](deploy.md) |
 | see the database in the browser | `bgdb build`, then `bgdb serve dist` |

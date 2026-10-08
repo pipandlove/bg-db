@@ -1,4 +1,4 @@
-# "Submit a match" issues become pull requests. Set the secret BGDB_BOT_TOKEN so that "validate" runs on them (docs/contributing-flow.md in bg-db).
+# "Submit a match" issues become pull requests. Set the secret BGDB_BOT_TOKEN so that "validate" runs on them (docs/contributing-flow.md in bgdb).
 name: issue-to-pr
 on:
   issues:

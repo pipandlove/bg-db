@@ -10,7 +10,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseMatchBytes, readMatchBytes, contentHash, cleanHeaderMetadata, nameMetadata, planMetadata, parseSidecar, sha256Hex, decodeText, META_KEYS, RANK_TEXT } from '@bg-db/core';
+import { parseMatchBytes, readMatchBytes, contentHash, cleanHeaderMetadata, nameMetadata, planMetadata, parseSidecar, sha256Hex, decodeText, META_KEYS, RANK_TEXT } from '@bgdb/core';
 import { collectGroups, storedMatches } from './ingest.js';
 import { reconcileInbox, movesFingerprint } from './reconcile.js';
 import { listShards } from './store.js';

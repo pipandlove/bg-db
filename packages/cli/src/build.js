@@ -26,7 +26,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { readMatch, contentHash, sha256Hex, normalizeName, makeBloom, checkSources } from '@bg-db/core';
+import { readMatch, contentHash, sha256Hex, normalizeName, makeBloom, checkSources } from '@bgdb/core';
 import { listShards, readMetas, matchPaths, attachmentPath, treeDigest, checkExternalShards, loadHashIndex } from './store.js';
 import { listEnrichments, enrichmentPaths } from './enrich.js';
 

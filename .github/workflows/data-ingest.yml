@@ -92,7 +92,7 @@ jobs:
           jq -r '"This data repository is at \(.repo.mb) MB (data \(.repo.dataMB) MB, git \(.repo.gitMB // "unknown") MB): warning at \(.repo.warnMB) MB, stop at \(.repo.stopMB) MB.\n\n"
             + (if .repo.state == "stop" then "**Nothing more is added here.** " else "" end)
             + (if .waiting > 0 then "\(.waiting) match(es) wait in inbox/ for the next data repository. " else "" end)
-            + "Prepare the next data repository: `npm run new-data-repo` in bg-db (docs/growing.md, decision 0024)."' "$R" > "$RUNNER_TEMP/size.md"
+            + "Prepare the next data repository: `npm run new-data-repo` in bgdb (docs/growing.md, decision 0024)."' "$R" > "$RUNNER_TEMP/size.md"
           gh label create repository-size --force >/dev/null 2>&1 || true
           N=$(gh issue list --label repository-size --state open --json number --jq '.[0].number // empty')
           if [ -n "$N" ]; then gh issue edit "$N" --body-file "$RUNNER_TEMP/size.md" >/dev/null; else gh issue create --title "Prepare the next data repository" --label repository-size --body-file "$RUNNER_TEMP/size.md"; fi

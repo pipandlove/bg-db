@@ -47,7 +47,7 @@ test('only actions published by GitHub ("actions/...") are used, each pinned to 
   for (const [action, used] of pins) assert.equal(new Set(used).size, 1, `${action} is pinned to different commits: ${[...new Set(used)].join(', ')}`);
 });
 
-test('a data repository runs no code of its own: each workflow calls a reusable workflow of bg-db, at the same tag as the tools it checks out', () => {
+test('a data repository runs no code of its own: each workflow calls a reusable workflow of bgdb, at the same tag as the tools it checks out', () => {
   assert.deepEqual(callers.sort(), ['ingest.yml', 'issue-to-pr.yml', 'pages.yml', 'review-publish.yml', 'validate.yml']);
   for (const f of callers) {
     const t = caller(f);
@@ -59,7 +59,7 @@ test('a data repository runs no code of its own: each workflow calls a reusable 
     assert.match(t, /\n {4}with:\n {6}tools-repository: %%toolsRepository%%\n {6}tools-ref: %%toolsRef%%\n {4}secrets: inherit\n$/, f);
     const called = read(m[1]);
     assert.match(called, /^on:\n  workflow_call:\n/m, `${m[1]} is reusable`);
-    assert.ok(!/^on:\n(?!  workflow_call:)/m.test(called), `${m[1]} has no trigger of its own: it never runs in bg-db`);
+    assert.ok(!/^on:\n(?!  workflow_call:)/m.test(called), `${m[1]} has no trigger of its own: it never runs in bgdb`);
   }
   for (const f of files.filter((x) => x.startsWith('data-'))) {
     const t = read(f);
@@ -141,7 +141,7 @@ test('issue-to-pr: only for issues labelled "submission", the issue text only th
   assert.match(t, /if ! gh pr create [\s\S]*could not open the pull request by itself[\s\S]*exit 1/, 'a pull request that cannot be opened is said on the issue');
 });
 
-test('pages: bg-db publishes the site with sources.json; a data repository publishes its data/ only', () => {
+test('pages: bgdb publishes the site with sources.json; a data repository publishes its data/ only', () => {
   assert.match(read('pages.yml'), /npm run build -- --sources sources\.json/);
   const c = caller('pages.yml');
   assert.match(c, /permissions:\n  contents: read\n  pages: write\n  id-token: write/);

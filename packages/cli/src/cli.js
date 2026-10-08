@@ -3,7 +3,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { readMatchBytes, matchHash16, anonymizeMatchText, writeMat, RANK_TEXT } from '@bg-db/core';
+import { readMatchBytes, matchHash16, anonymizeMatchText, writeMat, RANK_TEXT } from '@bgdb/core';
 import { loadConfig } from './store.js';
 import { ingest, ingestComment } from './ingest.js';
 import { build } from './build.js';

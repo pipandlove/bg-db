@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Update a local repository from a folder extracted from a new bg-db.zip.
+ * Update a local repository from a folder extracted from a new bgdb.zip.
  *
  *   node scripts/update-from-zip.mjs <extracted-folder> [--repo <dir>] [--apply] [--delete] [--force]
  *

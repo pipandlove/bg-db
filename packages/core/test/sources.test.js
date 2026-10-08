@@ -8,9 +8,9 @@ import { checkSources, mergeEnrichment } from '../src/sources.js';
 const good = () => ({
   schema: '1.0', name: 'BGDB', license: 'CC0-1.0',
   sources: [
-    { name: 'bg-db-data-1', url: 'https://owner.github.io/bg-db-data-1/', repository: 'owner/bg-db-data-1', state: 'archived' },
-    { name: 'bg-db-data-2', url: 'https://owner.github.io/bg-db-data-2/', repository: 'owner/bg-db-data-2', defaultBranch: 'main', state: 'current' },
-    { name: 'bg-db-data-3', url: 'https://owner.github.io/bg-db-data-3/', repository: 'owner/bg-db-data-3', state: 'next' },
+    { name: 'bgdb-data-1', url: 'https://owner.github.io/bgdb-data-1/', repository: 'owner/bgdb-data-1', state: 'archived' },
+    { name: 'bgdb-data-2', url: 'https://owner.github.io/bgdb-data-2/', repository: 'owner/bgdb-data-2', defaultBranch: 'main', state: 'current' },
+    { name: 'bgdb-data-3', url: 'https://owner.github.io/bgdb-data-3/', repository: 'owner/bgdb-data-3', state: 'next' },
   ],
 });
 
@@ -18,7 +18,7 @@ test('a valid sources.json: one current source, which is where contributions go'
   const r = checkSources(good());
   assert.deepEqual(r.errors, []);
   assert.equal(r.ok, true);
-  assert.deepEqual([r.current.name, r.current.repository, r.current.defaultBranch], ['bg-db-data-2', 'owner/bg-db-data-2', 'main']);
+  assert.deepEqual([r.current.name, r.current.repository, r.current.defaultBranch], ['bgdb-data-2', 'owner/bgdb-data-2', 'main']);
   assert.equal(r.sources[0].defaultBranch, 'master', 'the default branch defaults to master');
   assert.deepEqual([r.name, r.license], ['BGDB', 'CC0-1.0']);
 });
@@ -35,8 +35,8 @@ test('mistakes are named: no current source, two current, no repository for the 
   const edit = (f) => { const j = good(); f(j); return checkSources(j).errors.join(' | '); };
   assert.match(edit((j) => { j.sources[1].state = 'archived'; }), /exactly one source must be "current".*there are 0/);
   assert.match(edit((j) => { j.sources[0].state = 'current'; }), /there are 2/);
-  assert.match(edit((j) => { delete j.sources[1].repository; }), /current source \(bg-db-data-2\) needs its "repository"/);
-  assert.match(edit((j) => { j.sources[2].name = 'bg-db-data-1'; }), /the name is used twice/);
+  assert.match(edit((j) => { delete j.sources[1].repository; }), /current source \(bgdb-data-2\) needs its "repository"/);
+  assert.match(edit((j) => { j.sources[2].name = 'bgdb-data-1'; }), /the name is used twice/);
   assert.match(edit((j) => { j.sources[0].state = 'old'; }), /"state" must be one of current, next, archived/);
   assert.match(edit((j) => { j.sources[0].name = 'a b'; }), /"name" must be/);
   assert.match(edit((j) => { j.sources[0].repository = 'no-slash'; }), /"repository" must look like "owner\/name"/);

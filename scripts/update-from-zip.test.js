@@ -13,8 +13,8 @@ const capture = () => { const out = []; return { out, io: { out: (s) => out.push
 function setup() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'upd-'));
   const repo = path.join(tmp, 'repo');
-  const src = path.join(tmp, 'zip', 'bg-db');            // zip with a top-level folder
-  for (const r of [repo, src]) write(r, 'package.json', '{"name":"bg-db"}');
+  const src = path.join(tmp, 'zip', 'bgdb');            // zip with a top-level folder
+  for (const r of [repo, src]) write(r, 'package.json', '{"name":"bgdb"}');
   write(repo, 'a.js', 'old\n'); write(src, 'a.js', 'new\n');
   write(repo, 'same.js', 'x\r\ny\r\n'); write(src, 'same.js', 'x\ny\n');       // only line endings differ
   write(src, 'added/b.js', 'b\n');

@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { analyzeGroup, normalizeVideoLink, TAG_RE, META_KEYS, parseSidecar } from '@bg-db/core';
+import { analyzeGroup, normalizeVideoLink, TAG_RE, META_KEYS, parseSidecar } from '@bgdb/core';
 import { listShards, loadHashIndex, matchPaths, readMetas } from './store.js';
 
 export const ID_RE = /^(\d{4,})\/([0-9a-f]{16,64})$/;

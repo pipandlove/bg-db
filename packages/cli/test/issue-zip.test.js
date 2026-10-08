@@ -153,12 +153,12 @@ test('after the ingest: the contributor gets the links to the matches on the sit
   fs.writeFileSync(path.join(w.inbox, 'issue-12.zip'), pageZip([FOX]));
   const rep = ingest({ inbox: w.inbox, data: w.data, config, contributor: 't', submittedAt: '2026-10-07' });
   const id = rep.results.find((r) => r.status === 'added').id;
-  const c = ingestComment(rep, { siteUrl: 'https://owner.github.io/bg-db' });
+  const c = ingestComment(rep, { siteUrl: 'https://owner.github.io/bgdb' });
   assert.match(c, /^Done: 1 match is now in the database\. Thank you!/);
-  assert.ok(c.includes(`- tester vs Osprey12, 3 pts: [${id}](https://owner.github.io/bg-db/#m=${encodeURIComponent(id)})`), c);
+  assert.ok(c.includes(`- tester vs Osprey12, 3 pts: [${id}](https://owner.github.io/bgdb/#m=${encodeURIComponent(id)})`), c);
   assert.match(c, /within a few minutes/);
   assert.ok(ingestComment(rep).includes(`\`${id}\``), 'without siteUrl, the identifier');
   fs.writeFileSync(path.join(w.inbox, 'again.mat'), bytes(FOX));
-  const again = ingestComment(ingest({ inbox: w.inbox, data: w.data, config, contributor: 't', submittedAt: '2026-10-07' }), { siteUrl: 'https://owner.github.io/bg-db/' });
+  const again = ingestComment(ingest({ inbox: w.inbox, data: w.data, config, contributor: 't', submittedAt: '2026-10-07' }), { siteUrl: 'https://owner.github.io/bgdb/' });
   assert.match(again, /^The ingest has run, but nothing new was added\.\n\n- tester vs Osprey12, 3 pts: already in the database/);
 });

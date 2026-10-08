@@ -6,7 +6,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { main } from '../src/cli.js';
 import { FIXTURES } from '../../core/test/helpers.js';
-import { sha256Hex, bloomHas, normalizeName, readMatch, toBgdbJson } from '@bg-db/core';
+import { sha256Hex, bloomHas, normalizeName, readMatch, toBgdbJson } from '@bgdb/core';
 
 const capture = () => { const lines = []; return { lines, io: { out: (s) => lines.push(s), err: (s) => lines.push(s) } }; };
 const FILES = {

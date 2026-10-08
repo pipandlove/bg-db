@@ -1,5 +1,5 @@
 /**
- * new-data-repo and switch-data-repo (decision 0024), in a temporary folder: bg-db and its data repositories side by side, real git,
+ * new-data-repo and switch-data-repo (decision 0024), in a temporary folder: bgdb and its data repositories side by side, real git,
  * and a fake gh that records what it was asked.
  */
 import { test } from 'node:test';
@@ -20,12 +20,12 @@ const FIX = [
   'opengammon/Starling9_vs_tester_2026-09-27.mat',
 ];
 
-/** bg-db (its configuration, the template, a git identity) in a new folder; the data repositories are made next to it */
+/** bgdb (its configuration, the template, a git identity) in a new folder; the data repositories are made next to it */
 function world({ identity = true } = {}) {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'bgdb-repos-'));
-  const tools = path.join(parent, 'bg-db');
+  const tools = path.join(parent, 'bgdb');
   fs.mkdirSync(tools);
-  fs.writeFileSync(path.join(tools, 'bgdb.config.json'), JSON.stringify({ name: 'BGDB', license: 'CC0-1.0', repository: 'owner/bg-db' }));
+  fs.writeFileSync(path.join(tools, 'bgdb.config.json'), JSON.stringify({ name: 'BGDB', license: 'CC0-1.0', repository: 'owner/bgdb' }));
   fs.cpSync(path.join(REPO, 'templates'), path.join(tools, 'templates'), { recursive: true });
   spawnRun('git', ['init', '-q', '-b', 'master', tools]);
   if (identity) {
@@ -34,7 +34,7 @@ function world({ identity = true } = {}) {
   }
   const gh = [];
   // what GitHub answers: the tools exist with their tag, nothing else yet
-  const answers = { visibility: 'PRIVATE', refuse: [], exists: new Set(['owner/bg-db']), tag: true, pages: false, secrets: [], installed: true, loggedIn: true };
+  const answers = { visibility: 'PRIVATE', refuse: [], exists: new Set(['owner/bgdb']), tag: true, pages: false, secrets: [], installed: true, loggedIn: true };
   const ok = (stdout = '') => ({ status: 0, stdout, stderr: '' });
   const no = (stderr = 'HTTP 404: Not Found') => ({ status: 1, stdout: '', stderr });
   const run = (cmd, args, opts = {}) => {
@@ -69,48 +69,48 @@ function world({ identity = true } = {}) {
   return { parent, tools, gh, answers, lines, text: () => lines.join('\n'), opts, d, read, sources, git, ingest };
 }
 
-test('new-data-repo, the first one: made from the template, committed with the identity of bg-db, current in sources.json', async () => {
+test('new-data-repo, the first one: made from the template, committed with the identity of bgdb, current in sources.json', async () => {
   const w = world();
-  assert.equal(await newDataRepo(w.opts({ name: 'bg-db-data-1', local: true })), 0, w.text());
-  const cfg = JSON.parse(w.read('bg-db-data-1', 'bgdb.config.json'));
-  assert.deepEqual([cfg.firstShard, cfg.repository, cfg.closed, cfg.name], [1, 'owner/bg-db-data-1', false, 'BGDB']);
+  assert.equal(await newDataRepo(w.opts({ name: 'bgdb-data-1', local: true })), 0, w.text());
+  const cfg = JSON.parse(w.read('bgdb-data-1', 'bgdb.config.json'));
+  assert.deepEqual([cfg.firstShard, cfg.repository, cfg.closed, cfg.name], [1, 'owner/bgdb-data-1', false, 'BGDB']);
   for (const f of ['validate', 'review-publish', 'ingest', 'issue-to-pr', 'pages']) {
-    const t = w.read('bg-db-data-1', `.github/workflows/${f}.yml`);
-    assert.match(t, /uses: owner\/bg-db\/\.github\/workflows\/data-[a-z-]+\.yml@v9\n {4}with:\n {6}tools-repository: owner\/bg-db\n {6}tools-ref: v9\n/, f);
+    const t = w.read('bgdb-data-1', `.github/workflows/${f}.yml`);
+    assert.match(t, /uses: owner\/bgdb\/\.github\/workflows\/data-[a-z-]+\.yml@v10\n {4}with:\n {6}tools-repository: owner\/bgdb\n {6}tools-ref: v10\n/, f);
   }
   for (const f of ['README.md', 'CONTRIBUTING.md', 'DATA-LICENSE.md', 'inbox/README.md', '.github/ISSUE_TEMPLATE/submit-match.yml', '.github/PULL_REQUEST_TEMPLATE.md', 'package.json', '.gitignore']) {
-    assert.ok(!w.read('bg-db-data-1', f).includes('%%'), `${f}: a placeholder is left`);
+    assert.ok(!w.read('bgdb-data-1', f).includes('%%'), `${f}: a placeholder is left`);
   }
-  assert.match(w.read('bg-db-data-1', 'README.md'), /publishes them at <https:\/\/owner\.github\.io\/bg-db-data-1\/>[\s\S]*Shards start at `0001`/);
-  assert.equal(w.git('bg-db-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bg-db-data-1, from the template of owner/bg-db@v9');
-  assert.equal(w.git('bg-db-data-1', 'status', '--porcelain'), '');
+  assert.match(w.read('bgdb-data-1', 'README.md'), /publishes them at <https:\/\/owner\.github\.io\/bgdb-data-1\/>[\s\S]*Shards start at `0001`/);
+  assert.equal(w.git('bgdb-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bgdb-data-1, from the template of owner/bgdb@v10');
+  assert.equal(w.git('bgdb-data-1', 'status', '--porcelain'), '');
   assert.deepEqual(w.sources(), {
     schema: '1.0', name: 'BGDB', license: 'CC0-1.0',
-    sources: [{ name: 'bg-db-data-1', url: 'https://owner.github.io/bg-db-data-1/', repository: 'owner/bg-db-data-1', defaultBranch: 'master', state: 'current' }],
+    sources: [{ name: 'bgdb-data-1', url: 'https://owner.github.io/bgdb-data-1/', repository: 'owner/bgdb-data-1', defaultBranch: 'master', state: 'current' }],
   });
   assert.equal(w.gh.length, 0, '--local: nothing on GitHub');
-  assert.match(w.text(), /bg-db-data-1 is the current data repository/);
+  assert.match(w.text(), /bgdb-data-1 is the current data repository/);
 });
 
 test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no branch rule, access to the private tools; refusals are warnings', async () => {
   const w = world();
   w.answers.refuse = ['/pages'];                                      // a private repository on a free plan
   w.answers.tag = false;
-  assert.equal(await newDataRepo(w.opts({ name: 'bg-db-data-1' })), 0, w.text());
+  assert.equal(await newDataRepo(w.opts({ name: 'bgdb-data-1' })), 0, w.text());
   const calls = w.gh.map((c) => c.args.join(' '));
-  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bg-db --json name', 'api repos/owner/bg-db/git/ref/tags/v9'], 'checked before anything is made');
-  assert.match(calls.find((c) => c.startsWith('repo create')), /^repo create owner\/bg-db-data-1 --private --source .*bg-db-data-1 --remote origin --push --description /);
-  assert.ok(calls.includes('api -X PATCH repos/owner/bg-db-data-1 -F allow_squash_merge=true -F delete_branch_on_merge=true'));
-  assert.ok(calls.includes('label create submission -R owner/bg-db-data-1 --force'));
-  assert.ok(calls.includes('api -X POST repos/owner/bg-db-data-1/pages -f build_type=workflow'));
+  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bgdb --json name', 'api repos/owner/bgdb/git/ref/tags/v10'], 'checked before anything is made');
+  assert.match(calls.find((c) => c.startsWith('repo create')), /^repo create owner\/bgdb-data-1 --private --source .*bgdb-data-1 --remote origin --push --description /);
+  assert.ok(calls.includes('api -X PATCH repos/owner/bgdb-data-1 -F allow_squash_merge=true -F delete_branch_on_merge=true'));
+  assert.ok(calls.includes('label create submission -R owner/bgdb-data-1 --force'));
+  assert.ok(calls.includes('api -X POST repos/owner/bgdb-data-1/pages -f build_type=workflow'));
   assert.ok(!calls.some((c) => c.startsWith('variable set')), 'no publication after ingest when Pages could not be turned on');
   assert.ok(!calls.some((c) => c.includes('/protection')), 'no branch rule: it would refuse the ingest\'s commits, and the review decides the merge');
-  assert.ok(calls.includes('api -X PUT repos/owner/bg-db/actions/permissions/access -f access_level=user'));
+  assert.ok(calls.includes('api -X PUT repos/owner/bgdb/actions/permissions/access -f access_level=user'));
   const t = w.text();
   assert.match(t, /warning: turn on Pages \(source: GitHub Actions\): refused \(HTTP 403: Upgrade to GitHub Pro\)\. By hand: Settings > Pages/);
-  assert.match(t, /warning: owner\/bg-db is private: add the secret BGDB_TOOLS_TOKEN to owner\/bg-db-data-1/);
-  assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bg-db-data-1/);
-  assert.match(t, /warning: there is no tag v9 on GitHub in owner\/bg-db: .* git tag v9 && git push origin v9/);
+  assert.match(t, /warning: owner\/bgdb is private: add the secret BGDB_TOOLS_TOKEN to owner\/bgdb-data-1/);
+  assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bgdb-data-1/);
+  assert.match(t, /warning: there is no tag v10 on GitHub in owner\/bgdb: .* git tag v10 && git push origin v10/);
   assert.ok(!calls.some((c) => c.startsWith('workflow run')), 'Pages refused: nothing to publish');
 
   const p = world();
@@ -126,7 +126,7 @@ test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no
   assert.match(p.read('x', '.github/workflows/ingest.yml'), /data-ingest\.yml@v2\n[\s\S]*tools-ref: v2/);
 });
 
-test('new-data-repo refuses: no name, a name already listed, a "next" waiting, bg-db without identity, a folder in the way, the previous repository not checked out', async () => {
+test('new-data-repo refuses: no name, a name already listed, a "next" waiting, bgdb without identity, a folder in the way, the previous repository not checked out', async () => {
   const w = world();
   assert.equal(await newDataRepo(w.opts({ name: undefined, local: true })), 2);
   assert.match(w.text(), /Give the name of the new data repository/);
@@ -279,7 +279,7 @@ test('new-data-repo checks gh and the tools on GitHub before it makes anything',
   for (const [set, re] of [
     [(a) => { a.installed = false; }, /gh \(the GitHub command line\) is not installed: see docs\/data-repositories\.md/],
     [(a) => { a.loggedIn = false; }, /gh is not logged in: run "gh auth login"/],
-    [(a) => { a.exists.delete('owner/bg-db'); }, /owner\/bg-db \(the tools, .*\) is not on GitHub, or this login cannot see it/],
+    [(a) => { a.exists.delete('owner/bgdb'); }, /owner\/bgdb \(the tools, .*\) is not on GitHub, or this login cannot see it/],
   ]) {
     const w = world();
     set(w.answers);
@@ -310,7 +310,7 @@ test('publish-data-repo: a repository made with --local goes on GitHub later; a 
   assert.ok(!calls.some((c) => c.startsWith('repo create') || c.includes('-X POST')), calls.join('\n'));
   assert.match(w.text(), /owner\/a exists on GitHub: push to it[\s\S]*Pages is on already/);
   assert.ok(!/warning/.test(w.text()));
-  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bg-db@v9');
+  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bgdb@v10');
 
   // gh repo create refused: the folder and sources.json are kept, and the message says how to finish
   const f = world();
@@ -323,8 +323,8 @@ test('publish-data-repo: a repository made with --local goes on GitHub later; a 
 });
 
 test('the command line of the steps', () => {
-  assert.deepEqual(parseArgs(['new', 'bg-db-data-2', '--owner', 'o', '--tools-ref', 'v2', '--first-shard', '7', '--public', '--dry-run']),
-    { command: 'new', name: 'bg-db-data-2', owner: 'o', toolsRef: 'v2', firstShard: 7, public: true, dryRun: true });
+  assert.deepEqual(parseArgs(['new', 'bgdb-data-2', '--owner', 'o', '--tools-ref', 'v2', '--first-shard', '7', '--public', '--dry-run']),
+    { command: 'new', name: 'bgdb-data-2', owner: 'o', toolsRef: 'v2', firstShard: 7, public: true, dryRun: true });
   assert.deepEqual(parseArgs(['switch', '--local']), { command: 'switch', name: undefined, local: true });
   const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['new-data-repo'], 'node scripts/data-repos.mjs new');

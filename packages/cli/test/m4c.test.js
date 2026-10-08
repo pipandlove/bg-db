@@ -490,12 +490,12 @@ test('split: a sealed shard moves to another repository; its hashes stay (duplic
 // ------------------------------------------------------------------------------------------------ sources.json (decision 0024)
 
 test('sources.json: the site reads several data repositories, sends contributions to the current one, merges their enrichments', async () => {
-  // bg-db-data-1 (archived): shard 0001
+  // bgdb-data-1 (archived): shard 0001
   const d1 = ws('data1');
   d1.put('linnet'); d1.put('vireo');
   assert.equal((await d1.ingest()).code, 0);
   assert.equal((await d1.build('dist', '--site', d1.a('no-site'))).code, 0);
-  // bg-db-data-2 (current): its first shard is 0002; it knows the matches of data-1 by their hash file, and corrects one of them
+  // bgdb-data-2 (current): its first shard is 0002; it knows the matches of data-1 by their hash file, and corrects one of them
   const d2 = ws('data2');
   fs.mkdirSync(d2.a('data/0002'), { recursive: true });
   fs.writeFileSync(d2.a('data/0002/shard.json'), JSON.stringify({ schema: '1.0', id: '0002', status: 'open', counts: { matches: 0, games: 0 } }));
@@ -515,9 +515,9 @@ test('sources.json: the site reads several data repositories, sends contribution
     const tools = ws('tools');
     const sources = {
       schema: '1.0', name: 'BGDB', license: 'CC0-1.0', sources: [
-        { name: 'bg-db-data-1', url: u1, repository: 'owner/bg-db-data-1', state: 'archived' },
-        { name: 'bg-db-data-2', url: u2, repository: 'owner/bg-db-data-2', defaultBranch: 'main', state: 'current' },
-        { name: 'bg-db-data-3', url: 'https://owner.github.io/bg-db-data-3/', repository: 'owner/bg-db-data-3', state: 'next' },
+        { name: 'bgdb-data-1', url: u1, repository: 'owner/bgdb-data-1', state: 'archived' },
+        { name: 'bgdb-data-2', url: u2, repository: 'owner/bgdb-data-2', defaultBranch: 'main', state: 'current' },
+        { name: 'bgdb-data-3', url: 'https://owner.github.io/bgdb-data-3/', repository: 'owner/bgdb-data-3', state: 'next' },
       ],
     };
     fs.writeFileSync(tools.a('sources.json'), JSON.stringify(sources));
@@ -530,20 +530,20 @@ test('sources.json: the site reads several data repositories, sends contribution
     const requested = [];
     const M = await cat.loadAll({ base: ut, fetchImpl: (u, i) => { requested.push(String(u)); return fetch(u, i); } });
     assert.deepEqual(M.errors, []);
-    assert.deepEqual(M.sources.map((s) => s.name), ['bg-db-data-1', 'bg-db-data-2'], 'the "next" repository is not read');
-    assert.ok(!requested.some((u) => u.includes('bg-db-data-3')));
-    assert.deepEqual(M.shards.map((s) => [s.id, s.source]), [['0001', 'bg-db-data-1'], ['0002', 'bg-db-data-2']]);
+    assert.deepEqual(M.sources.map((s) => s.name), ['bgdb-data-1', 'bgdb-data-2'], 'the "next" repository is not read');
+    assert.ok(!requested.some((u) => u.includes('bgdb-data-3')));
+    assert.deepEqual(M.shards.map((s) => [s.id, s.source]), [['0001', 'bgdb-data-1'], ['0002', 'bgdb-data-2']]);
     assert.equal(M.rows.length, 3);
     assert.ok(M.shards[0].base.startsWith(u1) && M.shards[1].base.startsWith(u2), 'each shard is loaded from its own repository');
-    assert.deepEqual([M.registry.name, M.registry.repository, M.registry.defaultBranch], ['BGDB', 'owner/bg-db-data-2', 'main'], 'contributions go to the current repository');
+    assert.deepEqual([M.registry.name, M.registry.repository, M.registry.defaultBranch], ['BGDB', 'owner/bgdb-data-2', 'main'], 'contributions go to the current repository');
     const linnet = M.rows.find((r) => r.id === ID_LINNET);
     assert.deepEqual([linnet.event, linnet.enriched], ['Corrected Open', true], 'a correction made in the current repository applies to a match of the archived one');
     const contrib = await loadSite(tools.a('dist'), 'js/contribute-model.js');
-    assert.equal(contrib.issueFormLink(M.registry, []), 'https://github.com/owner/bg-db-data-2/issues/new?template=submit-match.yml&title=Matches', 'the submission form of the current repository');
+    assert.equal(contrib.issueFormLink(M.registry, []), 'https://github.com/owner/bgdb-data-2/issues/new?template=submit-match.yml&title=Matches', 'the submission form of the current repository');
 
     // one repository down: a notice, the others are still read
     const down = await cat.loadAll({ base: ut, fetchImpl: (u, i) => (String(u).startsWith(u1) ? Promise.resolve(new Response('', { status: 503 })) : fetch(u, i)) });
-    assert.match(down.errors.join(), /The data of bg-db-data-1 could not be loaded/);
+    assert.match(down.errors.join(), /The data of bgdb-data-1 could not be loaded/);
     assert.deepEqual(down.shards.map((s) => s.id), ['0002']);
     // a shard number listed by two repositories: the first listing is kept, the mistake is named
     const twice = await cat.loadAll({ base: ut, fetchImpl: async (u, i) => {
@@ -553,7 +553,7 @@ test('sources.json: the site reads several data repositories, sends contribution
       reg.shards.push({ ...reg.shards[0], id: '0001' });
       return new Response(JSON.stringify(reg));
     } });
-    assert.match(twice.errors.join(), /Shard 0001 is listed by bg-db-data-1 and by bg-db-data-2; the second listing is ignored/);
+    assert.match(twice.errors.join(), /Shard 0001 is listed by bgdb-data-1 and by bgdb-data-2; the second listing is ignored/);
     // a broken sources.json stops the site with the reason, rather than showing part of the database
     await assert.rejects(cat.loadAll({ base: ut, fetchImpl: (u, i) => (String(u).endsWith('sources.json') ? Promise.resolve(new Response(JSON.stringify({ ...sources, sources: [] }))) : fetch(u, i)) }), /at least one data repository/);
   } finally { for (const s of servers) s.close(); }
