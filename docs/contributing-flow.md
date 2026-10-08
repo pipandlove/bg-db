@@ -17,7 +17,7 @@ same match again with such a file corrects a match that is already in the databa
 |---|---|---|
 | **The Contribute page** (`contribute.html` on the site) | most people | Step 0 says first that a free GitHub account is needed, with a button to GitHub's sign-up page and why. Then six numbered steps, each lit up in turn, with pictures of GitHub and red marks on what to click (the same steps, to read first: **How to contribute**, `guide.html`). 1. The names key, the first time only (see *Player names* below): create it, load a copy, or go on without one; once a key is kept by the browser, this step is one line. 2. Drop the files (or paste the text): the page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, the names it will have in the database, and a picture of the last position; add a YouTube link and tags if you want. 3. Tick the rights box and download the ZIP (the files with the names replaced, and the rights statement, `CONTRIBUTION.md`). 4. Open the "Submit a match" form of the current data repository (title filled in, with the made-up names). 5. Drop the ZIP into its first box, tick the rights box, press Create. 6. The bot does the rest (the issue route below). No fork, no branch, no pull request to handle. |
 | **A GitHub issue** ("Submit a match" form of the current data repository) | everyone with a GitHub account: no fork, no branch, no pull request to handle | Drop the ZIP of the Contribute page into the first box (GitHub stores it and writes a line with its link: that is normal); tick the rights box; create the issue. A bot downloads the ZIP, checks it as the pull request will, and answers on the issue within a minute or two: what is new, what is already there, what to fix (then edit the issue with the new ZIP). When it can be added, it opens the pull request itself; after the merge and the ingest, it answers again on the issue with the links to the matches on the site. The issue's author is credited as the contributor. |
-| **A pull request** | people used to git | Add the ZIP of the Contribute page to `inbox/` of the current data repository and open a pull request (your own files would publish the names they hold). `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bgdb`) tells you beforehand what the bot will say. |
+| **A pull request** | people used to git | Add the ZIP of the Contribute page, or the files written by `bgdb hide-names --key-file` ([commands](commands.md#bgdb-hide-names)), to `inbox/` of the current data repository and open a pull request (your own files would publish the names they hold, and the review refuses them: `V-HANDLE`). `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bgdb`) tells you beforehand what the bot will say. |
 
 Nothing has to be named in a special way, filled in, or organised: the database never asks for metadata that the file already contains. If something is wrong, the message says what, where and how to fix it.
 
@@ -27,7 +27,7 @@ A file on GitHub is public as soon as it is submitted: the issue, its attachment
 after a change. So the Contribute page replaces the names **before** anything leaves the contributor's computer
 ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md)):
 
-- **Every player** (the contributor included) gets a made-up name such as `anon-brave-otter-7f3a`: HMAC-SHA-256 of the handle with the
+- **Every player** (the contributor included) gets a made-up name such as `quick-skunk-a63a`: HMAC-SHA-256 of the handle with the
   contributor's **names key**, turned into an adjective, an animal and four hex digits (`packages/core/src/pseudonym.js`). With one key,
   the same handle always gets the same name, so a contributor can follow their games against an opponent; with another key, another name,
   so nobody can link the matches of two contributors, or a name to an account on a platform.
@@ -42,8 +42,17 @@ after a change. So the Contribute page replaces the names **before** anything le
   copy, the event, place, round, annotator, transcriber and game-name fields cleared, the time removed from the date, the archive compressed
   again). Each rewritten file must read back to the same match and must no longer contain the old names, or it is left out with a note on
   the card. A declared illegal play is written into the normalised file itself.
-- **Not covered yet** (decision 0025): matches played over the board under real names, `bgdb erase`, a "submitted by" search, the
-  `V-HANDLE` check in CI, and pull requests made by hand with one's own files.
+- **Played over the board** (a tournament, a club, at home): the card of each match has a box for it. Ticked, the files are sent as they
+  are, with their real names, event and place, and `"origin": "otb"` in their `.bgdb.json`; the match page then says "Real names". The box
+  is not offered when the file names an online platform, and the review refuses that combination (`V-ORIGIN`).
+- **The safety net:** a data repository has `"names": "pseudonyms"` in its `bgdb.config.json`: its review and its ingest refuse a match
+  that is not declared over the board when a player of it, or of its SGF or XG file, is not a pseudonym (`V-HANDLE`). By then the file is
+  already public, so this protects the stored data, not the issue or the pull request.
+- **Your own matches:** the search `by:<GitHub login>` lists the matches an account added, whatever the names in them; the "Added by" line
+  of a match page links to it.
+- **Removing a match:** each match page has an "Ask for its removal" link to the "Remove a match" issue form of the current data
+  repository (the match number only, no name). A maintainer runs `bgdb erase` ([data-repositories.md](data-repositories.md#erasing-a-match)):
+  the match leaves the site, and the same match is refused if it is sent again (`V-ERASED`).
 
 ## What happens to a pull request
 

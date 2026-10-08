@@ -6,6 +6,7 @@
  *   year:2019  year:2019..2024  year:..2020 one year or a range
  *   len:7  len:5..9  len:money              match length (money = money game)
  *   has:cube,gammon,resign,analysis,attachment,video,illegal
+ *   by:octocat                              the GitHub account that submitted the match (decision 0025)
  *   anything else                           words that must appear in a player or event name
  * Accents and case are ignored. The query is the single source of truth: the filter controls only rewrite it,
  * and it is kept in the URL (#q=...) so that a result list can be shared.
@@ -56,14 +57,15 @@ function parseRange(v, allowMoney) {
   return null;
 }
 
-/** @returns {{text:string[], player:string[], event:string[], round:string[], year:object|null, len:object|null, has:string[], errors:string[]}} */
+/** @returns {{text:string[], player:string[], event:string[], round:string[], by:string[], year:object|null, len:object|null, has:string[], errors:string[]}} */
 export function parseQuery(q) {
-  const f = { text: [], player: [], event: [], round: [], year: null, len: null, has: [], errors: [] };
+  const f = { text: [], player: [], event: [], round: [], by: [], year: null, len: null, has: [], errors: [] };
   for (const { key, value } of tokenize(q)) {
     if (key === null) { if (value) f.text.push(value); continue; }
     if (key === 'player' || key === 'vs') { if (value) f.player.push(value); continue; }
     if (key === 'event') { if (value) f.event.push(value); continue; }
     if (key === 'round') { if (value) f.round.push(value); continue; }
+    if (key === 'by') { if (value) f.by.push(value.replace(/^@/, '')); continue; }
     if (key === 'year' || key === 'len') {
       const r = parseRange(value, key === 'len');
       if (r) f[key] = r; else f.errors.push(`"${key}:${value}" is not a number or a range such as ${key === 'year' ? '2019..2024' : '5..9'}`);
@@ -97,6 +99,7 @@ export function formatQuery(f) {
   for (const p of f.player) t.push(`player:${quote(p)}`);
   for (const e of f.event) t.push(`event:${quote(e)}`);
   for (const r of f.round) t.push(`round:${quote(r)}`);
+  for (const b of f.by) t.push(`by:${quote(b)}`);
   if (f.year) t.push(`year:${rangeText(f.year, false)}`);
   if (f.len) t.push(`len:${rangeText(f.len, true)}`);
   if (f.has.length) t.push(`has:${f.has.join(',')}`);
@@ -112,6 +115,7 @@ export function makePredicate(f) {
   const events = f.event.map(normalizeName).filter(Boolean);
   const rounds = f.round.map(normalizeName).filter(Boolean);
   const words = f.text.map(normalizeName).filter(Boolean);
+  const by = f.by.map((b) => b.toLowerCase());
   const need = f.has.reduce((a, k) => a | FLAG_BITS[k], 0);
   return (r) => {
     if (f.year && (r.year === null || !inRange(r.year, f.year))) return false;
@@ -119,6 +123,7 @@ export function makePredicate(f) {
     if (need && (r.flags & need) !== need) return false;
     for (const e of events) if (!r.eventNorm.includes(e)) return false;
     for (const x of rounds) if (!r.roundNorm.includes(x)) return false;
+    for (const b of by) if (r.byNorm !== b) return false;                 // a GitHub login: the whole of it, any case
     if (players.length === 1) {
       if (!r.n0.includes(players[0]) && !r.n1.includes(players[0])) return false;
     } else if (players.length === 2) {

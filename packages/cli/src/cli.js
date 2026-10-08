@@ -12,6 +12,9 @@ import { reviewInbox, classify, renderComment, issueToInbox, parseIssueBody, dow
 import { enrichByRef } from './enrich.js';
 import { verifyShards, splitShard } from './shards.js';
 import { writeSheet, applySheet } from './meta.js';
+import { eraseMatch } from './erase.js';
+import { hideNamesInFiles, loadKeyFile } from './hide-names.js';
+import { ERASE_REASONS } from './store.js';
 
 const MATCH_EXT = new Set(['.mat', '.txt', '.sgf', '.xg']);
 
@@ -23,7 +26,7 @@ export const COMMANDS = {
   },
   ingest: {
     summary: 'move valid matches from inbox/ into the open shard of data/',
-    usage: 'bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--comment file] [--config file]',
+    usage: 'bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--origin otb|online] [--report file] [--comment file] [--config file]',
   },
   meta: {
     summary: 'review event, round and date before an ingest: a sheet of what the file names propose and of the matches nothing tells apart; --apply writes it to the sidecars',
@@ -36,6 +39,10 @@ export const COMMANDS = {
   enrich: {
     summary: 'add a video link, tags, an SGF or an XG file to a match that is already in the database, or correct its event, round or date (sealed shards are not touched)',
     usage: 'bgdb enrich <id> [--link url] [--title text] [--game n] [--time seconds] [--tags a,b] [--sgf file] [--xg file] [--event text] [--round text] [--match-date YYYY-MM-DD] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--config file]',
+  },
+  erase: {
+    summary: 'remove a match at a player\'s request (or for another reason): its files, its enrichment, its hash line; it is listed in data/erased.tsv and refused if sent again',
+    usage: `bgdb erase <id> --reason ${ERASE_REASONS.join('|')} [--data data] [--date YYYY-MM-DD] [--dry-run]`,
   },
   verify: {
     summary: 'read every match of the shards in full and check it; --record stores the digest of sealed shards (faster builds)',
@@ -52,6 +59,10 @@ export const COMMANDS = {
   'from-issue': {
     summary: 'turn a "Submit a match" issue (the ZIP of the Contribute page dropped into it, or a pasted match) into a file of inbox/ (used by the issue workflow)',
     usage: 'bgdb from-issue --body file --number n [--inbox inbox] [--data data] [--result file] [--config file]',
+  },
+  'hide-names': {
+    summary: 'write match files with the players\' names replaced by the pseudonyms of a names key, as the Contribute page does (for a pull request by hand)',
+    usage: 'bgdb hide-names <file|dir>... --key-file file --out dir [--recursive] [--config file]',
   },
   anonymize: {
     summary: 'replace site match identifiers in text match files (handles are kept)',
@@ -101,7 +112,7 @@ export function checkFile(file, opts = {}) {
   };
 }
 
-const VALUE_OPTS = new Set(['inbox', 'data', 'out', 'site', 'contributor', 'date', 'max-matches', 'max-mb', 'config', 'port', 'changed', 'body', 'author', 'report', 'comment', 'number', 'result', 'link', 'title', 'game', 'time', 'tags', 'sgf', 'xg', 'shard', 'to', 'base', 'sheet', 'apply', 'event', 'round', 'match-date', 'rejected', 'cache', 'sources']);
+const VALUE_OPTS = new Set(['inbox', 'data', 'out', 'site', 'contributor', 'date', 'max-matches', 'max-mb', 'config', 'port', 'changed', 'body', 'author', 'report', 'comment', 'number', 'result', 'link', 'title', 'game', 'time', 'tags', 'sgf', 'xg', 'shard', 'to', 'base', 'sheet', 'apply', 'event', 'round', 'match-date', 'rejected', 'cache', 'sources', 'reason', 'key-file', 'origin']);
 export function parseOpts(rest) {
   const opts = {};
   const pos = [];
@@ -198,9 +209,10 @@ export async function main(argv, io = { out: (s) => console.log(s), err: (s) => 
         for (const d of r.errors) showDiag({ ...d, severity: 'error' });
       }
     };
+    if (opts.origin !== undefined && !['otb', 'online'].includes(opts.origin)) { io.err('--origin must be otb (played over the board: real names) or online'); return 2; }
     let rep;
     try {
-      rep = ingest({
+      rep = ingest({ origin: opts.origin,
         inbox: opts.inbox ?? 'inbox', data: opts.data ?? 'data', config, contributor: opts.contributor, submittedAt: opts.date,
         dryRun: !!opts['dry-run'], salvage: !!opts.salvage, maxMatches: opts['max-matches'] ? parseInt(opts['max-matches'], 10) : undefined, maxMB: opts['max-mb'] ? parseFloat(opts['max-mb']) : undefined,
         onStart: (n) => io.out(`${n} match(es) to read in ${opts.inbox ?? 'inbox'}${opts['dry-run'] ? ' (dry run)' : ''}`), onStep: (t) => io.out(t), onResult: showResult,
@@ -281,6 +293,40 @@ export async function main(argv, io = { out: (s) => console.log(s), err: (s) => 
     for (const w of r.warnings) io.out(`note: ${w}`);
     io.out(r.result.nothing ? `${r.result.id}: nothing new to add` : `${r.result.id}: ${opts['dry-run'] ? 'would add' : 'added'} ${addedText(a)}`);
     return 0;
+  }
+
+  if (cmd === 'erase') {
+    if (pos.length !== 1 || !opts.reason) { io.err(`Usage: ${COMMANDS.erase.usage}`); return 2; }
+    const r = eraseMatch({ data: opts.data ?? 'data', id: pos[0], reason: opts.reason, date: opts.date, dryRun: !!opts['dry-run'] });
+    if (!r.ok) { io.err(r.error); return 1; }
+    const where = [r.shard ? `its files in shard ${r.shard.id}${r.shard.status === 'sealed' ? ' (sealed: its digest recorded again)' : ''}` : null, r.hashFiles.length ? `its line in ${r.hashFiles.map((f) => path.basename(f)).join(', ')}` : null].filter(Boolean).join(' and ');
+    if (opts['dry-run']) { io.out(`${r.id} would be erased: ${where} (dry run: nothing written)`); return 0; }
+    for (const f of r.removed) io.out(`removed    ${path.relative(process.cwd(), f)}`);
+    io.out(`${r.id} erased: ${where}; listed in ${path.join(opts.data ?? 'data', 'erased.tsv')} (${opts.reason}).`);
+    if (!r.shard) io.out('Its files live in another data repository: run the same command there too.');
+    io.out('Commit and push; the next build drops it from the site. The git history still holds it: see docs/data-repositories.md, "Erasing a match".');
+    return 0;
+  }
+
+  if (cmd === 'hide-names') {
+    if (pos.length === 0 || !opts['key-file'] || !opts.out) { io.err(`Usage: ${COMMANDS['hide-names'].usage}`); return 2; }
+    const k = loadKeyFile(opts['key-file']);
+    if (k.error) { io.err(k.error); return 2; }
+    if (k.created) io.out(`created a new names key in ${opts['key-file']}: keep it private, and use it again next time (the Contribute page can load it too)`);
+    const files = pos.flatMap((a) => collect(a, !!opts.recursive, [], new Set([...MATCH_EXT, '.json']))).filter((f) => path.extname(f) !== '.json' || f.endsWith('.bgdb.json'));
+    const r = await hideNamesInFiles({ files, key: k.key, out: opts.out, config: loadConfig(opts.config ?? 'bgdb.config.json') });
+    let bad = 0;
+    for (const x of r.results) {
+      if (x.written) {
+        io.out(`written    ${x.written.join(', ')}  (${x.players.join(' vs ')})${x.status === 'partial' ? '  PARTIAL: add {"accept": "partial"} to send it' : ''}`);
+        for (const n of x.notes) io.out(`   note    ${n}`);
+      } else {
+        if (x.status === 'error') bad++;
+        io.out(`${x.status === 'duplicate' ? 'skipped' : 'ERROR  '}    ${x.base}${x.status === 'duplicate' ? '' : `: ${x.errors[0]?.message}`}`);
+      }
+    }
+    io.out(`\n${r.results.filter((x) => x.written).length} match(es) written to ${opts.out} with the names of key ${r.key}${bad ? `, ${bad} with errors` : ''}. Put those files (not the originals) in inbox/.`);
+    return bad ? 1 : 0;
   }
 
   if (cmd === 'verify') {

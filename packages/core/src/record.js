@@ -12,7 +12,7 @@ export function gameSummary(g) {
 }
 
 /** @returns {object} the content of "<hash>.meta.json" */
-export function buildMeta(match, { id, contentHash, canonicalVersion, originalHash, contributor = null, submittedAt = null, license = 'CC0-1.0', warnings = [], attachments = [], links }) {
+export function buildMeta(match, { id, contentHash, canonicalVersion, originalHash, contributor = null, submittedAt = null, license = 'CC0-1.0', warnings = [], attachments = [], links, origin = null }) {
   const sides = match.sides.map((s) => {
     const o = { name: s.name };
     if (s.rating !== undefined) { o.rating = s.rating; o.experience = s.experience; }
@@ -41,6 +41,7 @@ export function buildMeta(match, { id, contentHash, canonicalVersion, originalHa
       originalFormat: match.provenance.originalFormat,
       dialect: match.provenance.dialect,
       site: match.provenance.site ?? null,
+      ...(origin ? { origin } : {}),
       originalHash,
       importer: { name: 'bgdb', version: CORE_VERSION },
       contributor,

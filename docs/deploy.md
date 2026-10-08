@@ -14,9 +14,9 @@ which runs the tools of `bgdb` at the tag it pins. The site reads every data rep
 
 1. Build and look at it locally, in a data repository checked out next to `bgdb`: `npm run build`, `npm run serve` (http://localhost:8080). Its build includes the site.
 2. In the repository: **Settings > Pages > Build and deployment > Source: GitHub Actions**.
-3. Run the workflow **pages** (Actions tab > pages > Run workflow). In `bgdb` it tests, builds the site with `sources.json` and publishes it; in a data
-   repository it builds and publishes `data/`, and runs by itself on a push that changes `data/` and after each ingest (`PUBLISH_AFTER_INGEST`). To publish on every push to `master`, in `bgdb` edit the trigger at the top of
-   `.github/workflows/pages.yml` as the comment says.
+3. Run the workflow **pages** once (Actions tab > pages > Run workflow). In `bgdb` it tests, builds the site with `sources.json` and publishes it, and
+   then runs by itself on every push to `master`; in a data repository it builds and publishes `data/`, and runs by itself on a push that changes
+   `data/` and after each ingest (`PUBLISH_AFTER_INGEST`).
 4. The site appears at `https://<user>.github.io/<repository>/`.
 
 Private repositories can use Pages only on a paid GitHub plan; on a free plan the repository (or a copy) has to be public.

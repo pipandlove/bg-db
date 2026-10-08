@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { analyzeGroup, readMatch, writeMat, readZip } from '@bgdb/core';
 import { collectGroups } from './ingest.js';
-import { listShards, loadHashIndex } from './store.js';
+import { listShards, loadHashIndex, readErased } from './store.js';
 import { diffEnrichment, readEnrichment, readLocalMeta, ID_RE } from './enrich.js';
 
 export const MARKER = '<!-- bgdb-review -->';
@@ -34,6 +34,7 @@ function sidecarPath(inbox, g) {
  */
 export function reviewInbox({ inbox, data, config }) {
   const known = loadHashIndex(listShards(data), data).byFull;
+  const erased = readErased(data);
   const groups = [];
   const found = {};
   const collected = collectGroups(inbox, found);
@@ -46,7 +47,7 @@ export function reviewInbox({ inbox, data, config }) {
   }
   for (const g of collected) {
     const files = Object.values(g.files).flat().map((e) => path.relative(inbox, e.path).split(path.sep).join('/'));
-    const res = analyzeGroup(g, { config, known });
+    const res = analyzeGroup(g, { config, known, erased });
     if (res.status === 'new') known.set(res.full, '(earlier in this submission)');
     // a duplicate that brings something new (a link, tags, an SGF or XG file) will enrich the existing match
     let enrich = null;

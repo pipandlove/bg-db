@@ -70,13 +70,15 @@ test('the round is a column of the catalog; rows of the same day and event are i
   assert.deepEqual([row.event, row.round, row.roundNorm], ['E', '', '']);
 });
 
-test('a catalog is built with the round column and its dictionary (version 2)', async () => {
+test('a catalog is built with the round column (version 2) and the contributor column (version 3)', async () => {
   const base = path.join(dist, 'data/0001');
   const manifest = JSON.parse(fs.readFileSync(path.join(base, 'manifest.json'), 'utf8'));
-  assert.equal(manifest.files[0].version, 2);
+  assert.equal(manifest.files[0].version, 3);
   const zlib = await import('node:zlib');
   const c = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(base, manifest.files[0].path))).toString('utf8'));
-  assert.equal(c.version, 2);
+  assert.equal(c.version, 3);
+  assert.equal(c.cols.by.length, c.count);
+  assert.ok(c.cols.by.every((i) => i === -1 || c.dict.contributors[i]), 'each match names its contributor in the dictionary, or none');
   assert.ok(c.dict.rounds.includes('Match 2') && c.dict.rounds.includes('1') && c.dict.rounds.includes('Round 2'));
   assert.equal(c.cols.rd.length, c.count);
   assert.equal(c.cols.rd.filter((i) => i !== -1).length, 4, 'four matches name a round');

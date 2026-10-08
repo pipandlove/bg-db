@@ -207,7 +207,7 @@ Validation runs, in this order and with the same code, in the browser, in the CL
 
 <a id="CR-01"></a>**[CR-01]** Corrections to sealed shards are stored as overlay or enrichment records ([[OV-01]](05-storage.md#OV-01)) and take effect at the next site build, without rewriting sealed files.
 
-<a id="CR-02"></a>**[CR-02]** A takedown request is accepted through an issue form and acted on promptly ([§11](11-rights-governance.md)). Hard removal (history rewrite) is reserved for legal necessity and documented in a public log.
+<a id="CR-02"></a>**[CR-02]** A takedown request is accepted through an issue form ("Remove a match", linked from each match page, giving the match number only) and acted on promptly ([§11](11-rights-governance.md)). `bgdb erase` removes the match from the current tree and lists its content hash, id, date and reason, never a name, in `data/erased.tsv`, the public log; the same match is then refused if sent again (`V-ERASED`). Hard removal (history rewrite) is reserved for legal necessity.
 
 ## Recognition
 

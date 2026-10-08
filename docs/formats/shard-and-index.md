@@ -17,6 +17,7 @@ data/0001/attachments/<h2>/<hash>.sgf|.xg     original GNU Backgammon / eXtreme 
 data/enrichments/<shard>/<h2>/<hash>.json     links, tags and attachments added later to a match (bgdb enrich, or an extra file for a duplicate)
 data/enrichments/<shard>/<h2>/<hash>.sgf|.xg  the attachments of that enrichment
 data/hashes/<shard>.tsv                       "<content hash>\t<id>" per match of a shard that was moved to another repository
+data/erased.tsv                               "<content hash>\t<id>\t<date>\t<reason>" per match removed by bgdb erase (decision 0025); lines starting with # are comments
 ```
 
 `shard.json` of a **sealed** shard also holds `integrity: {algorithm: 'sha256-tree', files, digest}`: a digest of every file of the shard (sorted lines of path and sha256), recorded when the shard is sealed (or by `bgdb verify --record`).
@@ -45,7 +46,7 @@ it grows by two characters if two different matches ever collide on 16. `<h2>` =
 | `illegalPlays` | plays made although illegal and accepted as played: `{game, row, side, player, play}` |
 | `links` | video links (of the match as it was submitted; later additions are in the enrichments): `{type:'video', provider:'youtube', id, url, time?, game?, title?}` |
 | `attachments` | `{kind:'sgf'\|'xg', file, bytes, sha256, verified, analysis (true/false/null), engine}` |
-| `provenance` | `originalFormat`, `dialect`, `site`, `originalHash` (SHA-256 of the file as submitted), `importer {name, version}`, `contributor`, `submittedAt`, `license` |
+| `provenance` | `originalFormat`, `dialect`, `site`, `origin` (only `"otb"`, for a match declared played over the board, whose real names are published; absent otherwise, decision 0025), `originalHash` (SHA-256 of the file as submitted), `importer {name, version}`, `contributor`, `submittedAt`, `license` |
 | `warnings` | codes of validation warnings at ingestion (`V-RESULT`, ...) |
 
 The identifier a site gave to the match (`Match ID`) is **never stored** ([decision 0010](../decisions/0010-privacy-and-anonymisation.md)).
@@ -98,13 +99,13 @@ one entry per match would not scale).
 ### Catalog (columnar, newest first, undated last)
 
 ```
-{ schema, type:'catalog', version:2, shard, count,
-  dict: { players:[names...], events:[names...], rounds:[names...] },
-  cols: { id, p0, p1, len, date, ev, rd, n, s0, s1, win, fl } }       one array per column, same length
+{ schema, type:'catalog', version:3, shard, count,
+  dict: { players:[names...], events:[names...], rounds:[names...], contributors:[logins...] },
+  cols: { id, p0, p1, len, date, ev, rd, n, s0, s1, win, fl, by } }   one array per column, same length
 ```
 
 `id` = hash (shard implied), `p0`/`p1` = index into `dict.players`, `len` = match length, `date` = `YYYY-MM-DD` or `""`,
-`ev` = index into `dict.events` or `-1`, `rd` = index into `dict.rounds` or `-1` (version 2; a reader of version 1 has no rounds), `n` = games, `s0`/`s1` = final score, `win` = 0, 1 or -1 (unfinished),
+`ev` = index into `dict.events` or `-1`, `rd` = index into `dict.rounds` or `-1` (version 2; a reader of version 1 has no rounds), `by` = index into `dict.contributors` (`provenance.contributor`) or `-1` (version 3, for the `by:` search), `n` = games, `s0`/`s1` = final score, `win` = 0, 1 or -1 (unfinished),
 `fl` = bit flags: **1** a gammon or backgammon occurred, **2** the cube was used, **4** analysis available (an attached SGF that carries analysis),
 **8** a game ended by resignation, **16** an original file is attached, **32** at least one video link, **64** at least one illegal play was made and is kept as played. (Bit 4 is set for an analysed SGF; an XG file's analysis status is unknown, so it only sets 16.)
 

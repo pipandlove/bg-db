@@ -61,7 +61,10 @@ function world({ identity = true } = {}) {
   const ingest = async (name, files, ...extra) => {
     for (const f of files) fs.copyFileSync(path.join(FIXTURES, f), d(name, `inbox/${path.basename(f)}`));
     const out = [];
-    const code = await main(['ingest', '--inbox', d(name, 'inbox'), '--data', d(name, 'data'), '--config', d(name, 'bgdb.config.json'), '--date', '2026-10-07', ...extra], { out: (s) => out.push(s), err: (s) => out.push(s) });
+    // the fixtures keep their names, which a data repository refuses ("names": "pseudonyms", decision 0025): its configuration is used without that key
+    const cfg = path.join(parent, `${name}.config.json`);
+    fs.writeFileSync(cfg, JSON.stringify({ ...JSON.parse(fs.readFileSync(d(name, 'bgdb.config.json'), 'utf8')), names: 'as-is' }));
+    const code = await main(['ingest', '--inbox', d(name, 'inbox'), '--data', d(name, 'data'), '--config', cfg, '--date', '2026-10-07', ...extra], { out: (s) => out.push(s), err: (s) => out.push(s) });
     git(name, 'add', '-A');
     git(name, 'commit', '-q', '-m', 'ingest');
     return { code, text: out.join('\n') };
@@ -76,13 +79,13 @@ test('new-data-repo, the first one: made from the template, committed with the i
   assert.deepEqual([cfg.firstShard, cfg.repository, cfg.closed, cfg.name], [1, 'owner/bgdb-data-1', false, 'BGDB']);
   for (const f of ['validate', 'review-publish', 'ingest', 'issue-to-pr', 'pages']) {
     const t = w.read('bgdb-data-1', `.github/workflows/${f}.yml`);
-    assert.match(t, /uses: owner\/bgdb\/\.github\/workflows\/data-[a-z-]+\.yml@v11\n {4}with:\n {6}tools-repository: owner\/bgdb\n {6}tools-ref: v11\n/, f);
+    assert.match(t, /uses: owner\/bgdb\/\.github\/workflows\/data-[a-z-]+\.yml@v12\n {4}with:\n {6}tools-repository: owner\/bgdb\n {6}tools-ref: v12\n/, f);
   }
-  for (const f of ['README.md', 'CONTRIBUTING.md', 'DATA-LICENSE.md', 'inbox/README.md', '.github/ISSUE_TEMPLATE/submit-match.yml', '.github/PULL_REQUEST_TEMPLATE.md', 'package.json', '.gitignore']) {
+  for (const f of ['README.md', 'CONTRIBUTING.md', 'DATA-LICENSE.md', 'inbox/README.md', '.github/ISSUE_TEMPLATE/submit-match.yml', '.github/ISSUE_TEMPLATE/remove-match.yml', '.github/PULL_REQUEST_TEMPLATE.md', 'package.json', '.gitignore']) {
     assert.ok(!w.read('bgdb-data-1', f).includes('%%'), `${f}: a placeholder is left`);
   }
   assert.match(w.read('bgdb-data-1', 'README.md'), /publishes them at <https:\/\/owner\.github\.io\/bgdb-data-1\/>[\s\S]*Shards start at `0001`/);
-  assert.equal(w.git('bgdb-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bgdb-data-1, from the template of owner/bgdb@v11');
+  assert.equal(w.git('bgdb-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bgdb-data-1, from the template of owner/bgdb@v12');
   assert.equal(w.git('bgdb-data-1', 'status', '--porcelain'), '');
   assert.deepEqual(w.sources(), {
     schema: '1.0', name: 'BGDB', license: 'CC0-1.0',
@@ -98,7 +101,7 @@ test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no
   w.answers.tag = false;
   assert.equal(await newDataRepo(w.opts({ name: 'bgdb-data-1' })), 0, w.text());
   const calls = w.gh.map((c) => c.args.join(' '));
-  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bgdb --json name', 'api repos/owner/bgdb/git/ref/tags/v11'], 'checked before anything is made');
+  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bgdb --json name', 'api repos/owner/bgdb/git/ref/tags/v12'], 'checked before anything is made');
   assert.match(calls.find((c) => c.startsWith('repo create')), /^repo create owner\/bgdb-data-1 --private --source .*bgdb-data-1 --remote origin --push --description /);
   assert.ok(calls.includes('api -X PATCH repos/owner/bgdb-data-1 -F allow_squash_merge=true -F delete_branch_on_merge=true'));
   assert.ok(calls.includes('label create submission -R owner/bgdb-data-1 --force'));
@@ -110,7 +113,7 @@ test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no
   assert.match(t, /warning: turn on Pages \(source: GitHub Actions\): refused \(HTTP 403: Upgrade to GitHub Pro\)\. By hand: Settings > Pages/);
   assert.match(t, /warning: owner\/bgdb is private: add the secret BGDB_TOOLS_TOKEN to owner\/bgdb-data-1/);
   assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bgdb-data-1/);
-  assert.match(t, /warning: there is no tag v11 on GitHub in owner\/bgdb: .* git tag v11 && git push origin v11/);
+  assert.match(t, /warning: there is no tag v12 on GitHub in owner\/bgdb: .* git tag v12 && git push origin v12/);
   assert.ok(!calls.some((c) => c.startsWith('workflow run')), 'Pages refused: nothing to publish');
 
   const p = world();
@@ -187,6 +190,10 @@ test('from one data repository to the next: firstShard after the last shard, clo
 
   // the ingest of the closed repository still files it into its open shard
   assert.match((await w.ingest('data-1', [])).text, /added\s+0002\//);
+  // a match erased in data-1 (decision 0025) stays refused in data-2
+  const gone = `${'a'.repeat(64)}\t0001/${'a'.repeat(16)}\t2026-10-08\tplayer-request`;
+  fs.writeFileSync(w.d('data-1', 'data/erased.tsv'), `# list\n${gone}\n`);
+  w.git('data-1', 'add', '-A'); w.git('data-1', 'commit', '-q', '-m', 'erased');
   w.lines.length = 0;
   assert.equal(await switchDataRepo(w.opts({ local: true })), 0, w.text());
   assert.match(w.text(), /data-1 is closed already[\s\S]*sealed 0002 \(2 matches\)/);
@@ -195,6 +202,7 @@ test('from one data repository to the next: firstShard after the last shard, clo
   assert.ok(shard2.integrity?.digest, 'sealed with its digest, so that builds trust it');
   assert.equal(w.git('data-1', 'status', '--porcelain'), '', 'committed');
   assert.deepEqual(fs.readdirSync(w.d('data-2', 'data/hashes')).sort(), ['0001.tsv', '0002.tsv']);
+  assert.match(w.read('data-2', 'data/erased.tsv'), new RegExp(`^# matches removed[^\n]*\n${gone}\n$`));
   assert.equal(w.read('data-2', 'data/hashes/0002.tsv').split('\n').filter(Boolean).length, 2);
   assert.equal(w.git('data-2', 'log', '-1', '--format=%s'), 'Hash files of the shards of data-1 (0001-0002) (decision 0024)');
   assert.deepEqual(w.sources().sources.map((s) => [s.name, s.state]), [['data-1', 'archived'], ['data-2', 'current']]);
@@ -310,7 +318,7 @@ test('publish-data-repo: a repository made with --local goes on GitHub later; a 
   assert.ok(!calls.some((c) => c.startsWith('repo create') || c.includes('-X POST')), calls.join('\n'));
   assert.match(w.text(), /owner\/a exists on GitHub: push to it[\s\S]*Pages is on already/);
   assert.ok(!/warning/.test(w.text()));
-  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bgdb@v11');
+  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bgdb@v12');
 
   // gh repo create refused: the folder and sources.json are kept, and the message says how to finish
   const f = world();

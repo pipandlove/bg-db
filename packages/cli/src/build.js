@@ -27,11 +27,11 @@ import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { readMatch, contentHash, sha256Hex, normalizeName, makeBloom, checkSources } from '@bgdb/core';
-import { listShards, readMetas, matchPaths, attachmentPath, treeDigest, checkExternalShards, loadHashIndex } from './store.js';
+import { listShards, readMetas, matchPaths, attachmentPath, treeDigest, checkExternalShards, loadHashIndex, readErased } from './store.js';
 import { listEnrichments, enrichmentPaths } from './enrich.js';
 
 const CORE_SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../core/src');
-export const CATALOG_VERSION = 2;       // 2: adds the round (dict.rounds, column rd); readers of version 1 ignore them
+export const CATALOG_VERSION = 3;       // 2: adds the round (dict.rounds, column rd); 3: the contributor (dict.contributors, column by); older readers ignore them
 export const FLAG = { GAMMON: 1, CUBE: 2, ANALYSIS: 4, ABANDONED: 8, ATTACHMENT: 16, VIDEO: 32, ILLEGAL: 64 };
 
 const gz = (text) => {
@@ -76,14 +76,14 @@ export function buildCatalog(shardId, metas) {
     if (!db) return -1;
     return da < db ? 1 : -1;                                      // newest first
   });
-  const dict = { players: [], events: [], rounds: [] };
-  const index = { players: new Map(), events: new Map(), rounds: new Map() };
+  const dict = { players: [], events: [], rounds: [], contributors: [] };
+  const index = { players: new Map(), events: new Map(), rounds: new Map(), contributors: new Map() };
   const idx = (kind, v) => {
     if (v === null || v === undefined || v === '') return -1;
     if (!index[kind].has(v)) { index[kind].set(v, dict[kind].length); dict[kind].push(v); }
     return index[kind].get(v);
   };
-  const cols = { id: [], p0: [], p1: [], len: [], date: [], ev: [], rd: [], n: [], s0: [], s1: [], win: [], fl: [] };
+  const cols = { id: [], p0: [], p1: [], len: [], date: [], ev: [], rd: [], n: [], s0: [], s1: [], win: [], fl: [], by: [] };
   for (const { hash, meta } of rows) {
     cols.id.push(hash);
     cols.p0.push(idx('players', meta.sides[0].name));
@@ -97,6 +97,7 @@ export function buildCatalog(shardId, metas) {
     cols.s1.push(meta.result?.score?.[1] ?? 0);
     cols.win.push(meta.result?.winner ?? -1);
     cols.fl.push(catalogFlags(meta));
+    cols.by.push(idx('contributors', meta.provenance?.contributor));     // "submitted by" (decision 0025)
   }
   return { schema: '1.0', type: 'catalog', version: CATALOG_VERSION, shard: shardId, count: rows.length, dict, cols };
 }
@@ -258,9 +259,15 @@ export function build(o) {
     videoHosts: o.config.videoHosts, capabilities: o.config.capabilities, sealPolicy: o.config.sealPolicy, shards: [], overlays: {},
   };
   let total = 0;
+  const erased = readErased(o.data);
 
   for (const shard of shards) {
-    const metas = readMetas(shard.dir);
+    // a match removed by "bgdb erase" (decision 0025) is never published, even if its files came back
+    const metas = readMetas(shard.dir).filter(({ meta }) => {
+      if (!erased.has(meta.contentHash)) return true;
+      errors.push(`${meta.id}: it was erased (data/erased.tsv), but its files are in shard ${shard.id} again: remove them`);
+      return false;
+    });
     const base = path.join(out, 'data', shard.id);
     // a sealed shard whose files still match the digest recorded at sealing is trusted: no match is read again
     let state = sealState(shard);

@@ -100,7 +100,7 @@ Code: [MIT](LICENSE). Data (the match records, metadata, attachments and catalog
 
 ```
 packages/core   logical model, parsers, rules, validation, identity, XGID/GNUBGID, metadata (no dependencies; runs in Node and the browser)
-packages/cli    command line: check, ingest, meta, build, serve, review, enrich, verify, split, anonymize
+packages/cli    command line: check, ingest, meta, build, serve, review, enrich, verify, split, erase, hide-names, anonymize
 site/           static site: search, match pages, replay, Contribute page (uses packages/core as it is)
 scripts/        archive import steps, data repositories (new, switch), update from a zip, spec index, diagnostics helpers
 fixtures/       real matches by dialect (+ .xg binaries, and invalid/ cases), names replaced by pseudonyms

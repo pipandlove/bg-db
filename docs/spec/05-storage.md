@@ -38,7 +38,7 @@ A *shard* is a self-contained, bounded group of matches with its own metadata, f
 
 <a id="SH-02"></a>**[SH-02]** A shard is sealed automatically when any threshold in the registry’s `sealPolicy` is reached (default: 5 000 matches, so that the open shard, read in full at each build, stays small ([decision 0024](../decisions/0024-data-repositories.md)), or 300 MB compressed, or the position index exceeds a configured size). Thresholds apply to future shards only; an open shard that is already above a lowered threshold is sealed as it is at the next ingest.
 
-<a id="SH-03"></a>**[SH-03]** Sealed shards are immutable. Corrections and removals are expressed as overlays ([§5](05-storage.md)).
+<a id="SH-03"></a>**[SH-03]** Sealed shards are immutable, except by a logged erasure ([CR-02](10-contribution.md#CR-02)), which records their digest again. Corrections are expressed as overlays ([§5](05-storage.md)).
 
 <a id="SH-04"></a>**[SH-04]** Content attributes (date, players, event, length) are exposed through per-shard *summaries* in `shard.json`, never through the shard assignment.
 

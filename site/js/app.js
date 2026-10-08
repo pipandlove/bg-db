@@ -367,7 +367,9 @@ function renderMatch(meta, replay, shard, hash, files, id, back) {
     meta.event || meta.round ? dlItem('Event', [meta.event, meta.round].filter(Boolean).join(' · ')) : null,
     dlItem('Rules', rulesText(meta.rules)),
     dlItem('Source', [meta.provenance.site, meta.provenance.dialect].filter(Boolean).join(' · ') || '–'),
-    meta.provenance.contributor ? dlItem('Added by', `${meta.provenance.contributor}${meta.provenance.submittedAt ? `, ${meta.provenance.submittedAt}` : ''}`) : null,
+    meta.provenance.origin === 'otb' ? dlItem('Names', 'Real names: played over the board') : null,
+    meta.provenance.contributor ? dlItem('Added by', h('span', {}, h('a', { href: `./#q=${encodeQ(`by:${meta.provenance.contributor}`)}`, title: 'All the matches this account added', text: meta.provenance.contributor }),
+      meta.provenance.submittedAt ? `, ${meta.provenance.submittedAt}` : '')) : null,
     lic ? dlItem('Licence', LICENSE_LINKS[lic] ? h('a', { href: LICENSE_LINKS[lic], rel: 'noopener noreferrer', text: lic }) : lic) : null,
     meta.tags?.length ? dlItem('Tags', h('span', { class: 'badges' }, meta.tags.map((t) => badge(t)))) : null)));
 
@@ -419,6 +421,14 @@ function renderMatch(meta, replay, shard, hash, files, id, back) {
         x.analysis === true ? badge('with analysis', 'ok') : x.analysis === false ? badge('no analysis') : badge('analysis unknown'),
         x.verified ? badge('checked against the match', 'ok') : badge('not checked', 'warn'),
         h('span', { class: 'muted', text: `${Math.max(1, Math.round(x.bytes / 1024))} KB` }))))));
+
+  // a player of the match can ask for it to be removed (decision 0025, spec CR-02)
+  const repo = S.data.registry.repository;
+  if (repo && /^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    root.append(h('p', { class: 'muted small removal' }, 'You played in this match and want it removed? ',
+      h('a', { href: `https://github.com/${repo}/issues/new?template=remove-match.yml&title=${encodeURIComponent(`Remove ${id}`)}`, target: '_blank', rel: 'noopener noreferrer', text: 'Ask for its removal' }),
+      ' (a GitHub issue that gives the match number only).'));
+  }
 
   return root;
 }

@@ -3,7 +3,7 @@
 # Data repositories: the maintainer's procedures
 
 Everything the maintainer may have to do with data repositories, step by step: making the first one, putting it on GitHub, its secrets and settings, working
-in it, moving it to a new version of the tools, switching to the next one, and undoing. The reasons are in [decision 0024](decisions/0024-data-repositories.md);
+in it, moving it to a new version of the tools, switching to the next one, undoing, and erasing a match. The reasons are in [decision 0024](decisions/0024-data-repositories.md);
 the options of the commands are in [commands.md](commands.md#scriptsdata-reposmjs).
 
 **In short.** `bgdb` holds the tools and the site, no matches. The matches live in data repositories (`bgdb-data-1`, then `bgdb-data-2`, ...), each a GitHub
@@ -24,8 +24,8 @@ Exactly one data repository is **current**: contributions go to it. Three comman
 
 Every command accepts `--dry-run` (print the steps, do nothing). `new-data-repo` and `switch-data-repo` accept `--local` (everything but GitHub).
 
-**Where things stand (2026-10-07):** `bgdb` has no remote (it is not pushed to GitHub from this machine), `gh` is not installed, and there is no data repository
-yet. Start at [1](#1-before-you-start-once). To work locally only for now, do 1.3 and go to [2](#2-the-first-data-repository) with `--local`.
+**Where things stand (2026-10-08):** `bgdb` is on GitHub (`pipandlove/bgdb`, its site at `https://pipandlove.github.io/bgdb/`), and `bgdb-data-1` is the current
+data repository, on tools `v12`. Sections 1 and 2 are done; the next steps are [7](#7-a-new-version-of-the-tools) for each release, and [8](#8-the-next-data-repository-and-the-switch) near 1 GB.
 
 ## 1. Before you start (once)
 
@@ -260,6 +260,7 @@ The tags so far:
 | `v9` | 2026-10-07 | the ingest's answer to the contributor is posted with `BGDB_BOT_TOKEN` (the workflow's own token may not comment on a pull request: "Resource not accessible by integration", and the publication of the data after it was skipped); a failed answer no longer stops the publication. Nothing to change in a data repository but the tag |
 | `v10` | 2026-10-08 | the project is renamed `bgdb` (it was `bg-db`): the tools are `pipandlove/bgdb`, the data repositories `bgdb-data-1`, ... (decision 0006, item 7). GitHub redirects a renamed repository's address but not a reusable workflow's, so a data repository moving to `v10` also replaces `bg-db` by `bgdb` in its workflow callers (`uses:` and `tools-repository:`), its `bgdb.config.json` (`repository`, `siteUrl`), README and CONTRIBUTING; the sites move to `https://<owner>.github.io/bgdb/` and `https://<owner>.github.io/bgdb-data-1/` |
 | `v11` | 2026-10-08 | the Contribute page replaces player names by pseudonyms made with the contributor's own names key, and removes the platform, the time of day, the event and the remarks, before the ZIP is made (decision 0025); the site revalidates each `shard.json` (a new match no longer stays out of the search for ten minutes). A data repository moving to `v11` also takes the new issue form (`.github/ISSUE_TEMPLATE/submit-match.yml`: no more pasting a match) and the new CONTRIBUTING.md of the template |
+| `v12` | 2026-10-08 | decision 0025 in full: a box on the Contribute page for a match played over the board (real names, `"origin": "otb"`); pseudonyms without the `anon-` prefix; the review and the ingest refuse names that are not pseudonyms (`V-HANDLE`) when `bgdb.config.json` says `"names": "pseudonyms"`, and an over-the-board match whose file names an online platform (`V-ORIGIN`); `bgdb erase` and `data/erased.tsv` (`V-ERASED`); the `by:` search (catalog version 3); `bgdb hide-names`. A data repository moving to `v12` also adds `"names": "pseudonyms"` to its `bgdb.config.json`, and takes the new issue form `.github/ISSUE_TEMPLATE/remove-match.yml` and the new CONTRIBUTING.md of the template |
 
 ## 8. The next data repository, and the switch
 
@@ -309,3 +310,27 @@ Corrections and enrichments of a match of an archived repository are written in 
 | a warning about Pages, "Upgrade to GitHub Pro" | section 1.2: a private repository on a free plan |
 | the site or the Contribute page: "The database could not be loaded (https://.../bgdb-data-1/registry.json: HTTP 404)" | the data repository was never published: its `pages` workflow runs on a push that changes `data/`, and a new repository has none. Run it once: `gh workflow run pages.yml -R pipandlove/bgdb-data-1` (or Actions > pages > Run workflow); also check that Pages is on (section 4) |
 | a workflow of the data repository failed after 0 s, "a workflow file issue" | it called `bgdb` at a tag that did not exist yet (section 1.4); once the tag is pushed, the next run works |
+
+<a id="erasing-a-match"></a>
+## 11. Erasing a match
+
+A player of a match asks for it to be removed, or the person who added it withdraws it ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md), spec CR-02).
+The request arrives as an issue of the "Remove a match" form (label `removal`), opened from the "Ask for its removal" link of the match page; it gives the match
+number only.
+
+| # | Step | Command |
+|---|---|---|
+| 1 | Check the number in the issue opens a match on the site. Do not ask who the person is, and write no name in the issue. | the browser |
+| 2 | In the data repository that stores it (its shard number tells which one; `git pull` first): remove its files and list it. An archived repository is unarchived first (section 9), and archived again after step 3. | `npm run bgdb -- erase 0001/21acddbb70ed09d5 --reason player-request` |
+| 3 | Commit and push: the `pages` workflow publishes the data again, without the match. | `git commit -am "Erased 0001/21acddbb70ed09d5 (player request)" && git push` |
+| 4 | If the current data repository is another one, run the same command there too: it removes the match's line from `data/hashes/` and lists it in its `data/erased.tsv`, so that the match is refused if it is sent again. | as in step 2 |
+| 5 | Answer the issue ("removed; it leaves the site within a few minutes") and close it. | github.com |
+
+The reasons: `player-request`, `contributor-withdrawal`, `rights`, `legal`. `data/erased.tsv` is the public log: the content hash, the id, the date and the reason,
+never a name. A sealed shard changes only this way: `erase` records its digest again, so the build keeps trusting it.
+
+**What `erase` cannot reach.** The git history still holds the files, and so do clones, forks and mirrors made before. For a player's request, removing the match from
+the published data is the usual answer. When the law requires more (a court order, a legal request about the history), the history is rewritten: delete and recreate the
+repository from its current files, as was done on 2026-10-08 ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md#done-so-far)), or rewrite it with
+`git filter-repo --invert-paths --path <file>` and force-push; then ask GitHub Support to purge the cached views, the pull request refs (`refs/pull/<n>/head`) and the issue
+attachments that held the match.

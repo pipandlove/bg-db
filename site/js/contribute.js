@@ -7,7 +7,7 @@
 import { loadAll } from './catalog.js';
 import { h, download } from './dom.js';
 import { makeZip } from './zip.js';
-import { prepare, hideNames, parseExtras, packageFiles, issueFormLink, previewReplay, knownFromRows, sendable } from './contribute-model.js';
+import { prepare, hideNames, parseExtras, packageFiles, issueFormLink, previewReplay, knownFromRows, sendable, platformOf } from './contribute-model.js';
 import { STEPS, stepSection, accountNotice, stepNo } from './steps.js';
 import { newKey, keyFileText, parseKey, keyToHex, keyFromHex, keyFingerprint, namer } from '../lib/core/index.js';
 import { buildGame } from './replay-model.js';
@@ -127,12 +127,12 @@ function card(item, i) {
   const facts = s ? [lengthText(s.matchLength), s.date, s.event, s.round, `${s.games} game${s.games === 1 ? '' : 's'}`,
     s.result?.finished ? `result ${s.result.score.join('–')}` : s.result ? `unfinished ${s.result.score.join('–')}` : null].filter(Boolean).join(' · ') : '';
   const kids = [h('header', {}, status, h('h3', { text: title })), facts ? h('p', { class: 'muted', text: facts }) : null, h('p', { class: 'muted small', text: names.join(', ') })];
-  if (item.hidden) {
-    kids.push(h('p', { class: 'names' }, 'In the database: ', h('strong', { text: item.hidden.players.join(' vs ') }),
-      h('span', { class: 'muted small', text: ' (no platform, no time of day, no event, no remarks)' })));
-    if (item.hidden.notes.length) kids.push(h('ul', { class: 'diag' }, item.hidden.notes.map((n) => h('li', { class: 'warning' }, h('strong', { text: 'Note: ' }), n))));
+  if (res.status === 'new' || res.status === 'partial') {
+    item.namesEl = h('div', { class: 'names-box' });
+    kids.push(item.namesEl);
+    renderNames(item);
+    kids.push(otbBox(item, i));
   }
-  if (item.hideError) kids.push(h('ul', { class: 'diag' }, h('li', { class: 'error' }, h('strong', { text: 'Cannot be sent: ' }), `the names could not be replaced (${item.hideError}).`)));
   if (res.status === 'duplicate') {
     const pid = parseMatchId(res.duplicateOf);
     kids.push(h('p', {}, pid ? h('a', { href: `./#m=${encodeURIComponent(res.duplicateOf)}`, text: `Open it: ${res.duplicateOf}` }) : `Found: ${res.duplicateOf}`,
@@ -158,6 +158,34 @@ function card(item, i) {
   return h('article', { class: `card c-${res.status}` }, kids);
 }
 
+/** the names the match will have in the database: made-up names (decision 0025), or the real ones for a match played over the board */
+function renderNames(item) {
+  const kids = [];
+  if (item.otb) {
+    kids.push(h('p', { class: 'names' }, 'In the database: ', h('strong', { text: item.res.summary.players.join(' vs ') }),
+      h('span', { class: 'muted small', text: ' (real names, with the event and the place, like chess games)' })));
+  } else if (item.hidden) {
+    kids.push(h('p', { class: 'names' }, 'In the database: ', h('strong', { text: item.hidden.players.join(' vs ') }),
+      h('span', { class: 'muted small', text: ' (no platform, no time of day, no event, no remarks)' })));
+    if (item.hidden.notes.length) kids.push(h('ul', { class: 'diag' }, item.hidden.notes.map((n) => h('li', { class: 'warning' }, h('strong', { text: 'Note: ' }), n))));
+  } else if (item.hideError) kids.push(h('ul', { class: 'diag' }, h('li', { class: 'error' }, h('strong', { text: 'Cannot be sent: ' }), `the names could not be replaced (${item.hideError}).`)));
+  item.namesEl.replaceChildren(...kids);
+}
+
+/**
+ * Played over the board? (decision 0025): then the real names are published, and a player can ask for the match to be removed. Not offered
+ * when the file names an online platform (the review would refuse it).
+ */
+function otbBox(item, i) {
+  const platform = platformOf(item);
+  if (platform) return h('p', { class: 'muted small', text: `Played online (the file names ${platform}): the players get made-up names.` });
+  const box = h('input', { type: 'checkbox', id: `otb-${i}`, onchange: () => { item.otb = box.checked; S.zipped = false; renderNames(item); refreshActions(); } });
+  box.checked = !!item.otb;
+  return h('div', { class: 'otb' },
+    h('p', {}, box, ' ', h('label', { for: `otb-${i}`, text: 'Played over the board (a tournament, a club, at home): publish the real names' })),
+    h('p', { class: 'muted small', text: 'The names and moves of an over-the-board match are published as they are in your file, like chess games. A player can ask for the match to be removed.' }));
+}
+
 /**
  * A match that can only be added partially (decision 0021): what would be kept, what is wrong (to fix it instead), the .mat that would
  * be stored, and the contributor's choice. Nothing is sent unless the box is ticked.
@@ -171,7 +199,7 @@ function partialBox(item, i) {
     h('ul', { class: 'diag' }, res.partial.notes.map((n) => h('li', { class: 'warning', text: n.message }))),
     h('p', { class: 'muted small', text: 'Or fix the file, and the whole match will be added:' }),
     h('ul', { class: 'diag' }, res.partial.errors.slice(0, 3).map((e) => h('li', { class: 'error' }, `${e.message}${e.line ? ` (line ${e.line})` : ''}`, e.hint ? h('div', { class: 'muted', text: `How to fix: ${e.hint}` }) : null))),
-    h('p', {}, h('button', { type: 'button', text: 'Download the match as it would be stored (.mat)', onclick: () => download(new Blob([item.hidden?.normalised ?? res.normalised], { type: 'text/plain' }), `${item.base}.mat`) }),
+    h('p', {}, h('button', { type: 'button', text: 'Download the match as it would be stored (.mat)', onclick: () => download(new Blob([(!item.otb && item.hidden?.normalised) || res.normalised], { type: 'text/plain' }), `${item.otb ? item.realBase : item.base}.mat`) }),
       h('span', { class: 'muted small', text: ' Open it in your own program, or check it, before you decide.' })),
     h('p', {}, accept, ' ', h('label', { for: `partial-${i}`, text: 'Add it partially, as shown above' })));
 }

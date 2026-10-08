@@ -28,8 +28,11 @@ test('a pseudonym: stable for one key, different with another, the same for the 
   assert.equal(new Set(WORDS.adjectives).size, 64);
   assert.equal(new Set(WORDS.animals).size, 64);
   const a = pseudonym(KEY, 'Sir_Plover');
-  assert.match(a, /^anon-[a-z]+-[a-z]+-[0-9a-f]{4}$/);
+  assert.match(a, /^[a-z]+-[a-z]+-[0-9a-f]{4}$/);
   assert.ok(isPseudonym(a));
+  assert.ok(isPseudonym(`anon-${a}`), 'the names of the first release (tools v11) had the prefix "anon-"');
+  assert.ok(!isPseudonym('blue-sky-12ab'), 'words outside the lists: a handle that looks like a pseudonym');
+  assert.ok(!isPseudonym('Hadar'));
   assert.equal(pseudonym(KEY, 'Sir_Plover'), a, 'stable');
   assert.equal(pseudonym(KEY, ' sir_plover '), a, 'normalised as for search');
   assert.notEqual(pseudonym(OTHER, 'Sir_Plover'), a, 'another key, another name');

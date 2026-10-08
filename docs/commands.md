@@ -52,7 +52,7 @@ OK    d2fe694645e0abc1  tester vs Osprey12  3pt  1 games  4-0  (tester_vs_Osprey
 
 ## bgdb ingest
 
-`bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--report file] [--comment file] [--config file]`
+`bgdb ingest [--inbox inbox] [--data data] [--contributor name] [--date YYYY-MM-DD] [--dry-run] [--max-matches n] [--max-mb n] [--salvage] [--origin otb|online] [--report file] [--comment file] [--config file]`
 
 Moves valid matches from the inbox into the **open shard**: each match is validated, de-duplicated by content, rewritten in the
 normalised `.mat` form (read back to make sure it is identical) and stored with its metadata sidecar. Invalid files stay in the
@@ -71,7 +71,7 @@ ZIP, with the rights statement), `README.txt` and `README.md` (except the inbox'
 | `name.mat` or `name.txt` | the match as text (primary) |
 | `name.sgf` | GNU Backgammon SGF, possibly with analysis: kept as an attachment (verified: it must be the same match); if it is the only file it is also the match itself |
 | `name.xg` | eXtreme Gammon file: read like the others, so it can be the match itself; next to a text or SGF version it is verified against it and kept as an attachment (an unreadable variant is kept unchecked, with a warning) |
-| `name.bgdb.json` | optional extras: `{"links": [{"url": "https://youtu.be/...", "title": "...", "game": 2, "time": 95}], "tags": ["final"], "illegal": [{"game": 6, "row": 19, "player": "Name"}]}`; `illegal` declares plays that were made although illegal; `"accept": "partial"` agrees that the match is added partially when some games cannot be read (decision 0021); `"event"`, `"round"` and `"date"` (`2025-07-26`, `2025-07` or `2025`) are reviewed values that replace what the headers say, `null` for none (decision 0022, written by `bgdb meta --apply`) ([formats](formats/README.md#illegal-plays-made-in-real-matches)) |
+| `name.bgdb.json` | optional extras: `{"links": [{"url": "https://youtu.be/...", "title": "...", "game": 2, "time": 95}], "tags": ["final"], "illegal": [{"game": 6, "row": 19, "player": "Name"}]}`; `illegal` declares plays that were made although illegal; `"accept": "partial"` agrees that the match is added partially when some games cannot be read (decision 0021); `"event"`, `"round"` and `"date"` (`2025-07-26`, `2025-07` or `2025`) are reviewed values that replace what the headers say, `null` for none (decision 0022, written by `bgdb meta --apply`); `"origin": "otb"` declares a match played over the board, whose real names are published (decision 0025, below) ([formats](formats/README.md#illegal-plays-made-in-real-matches)) |
 
 **Event and round** come from the headers, cleaned automatically (decision 0022): a placeholder such as `Event "Online match"` or
 `Round "Round 0"` is left out, and when there is no event, a `Site` tag that names a server and an event (`Galaxy Backgammon River Cup Final 2025`)
@@ -93,11 +93,12 @@ are skipped **with a warning** and never block the match.
 | `--max-matches` | from config | seal threshold override (default `sealPolicy.maxMatches`, 5 000) |
 | `--max-mb` | from config | size threshold override in MB of files in the shard, attachments included (default `sealPolicy.maxMB`, 300) |
 | `--salvage` | off | for bulk imports of old archives: keep what is clear of a match that fails ([partial-matches](partial-matches.md)). A game whose moves cannot be read is kept by its result when two sources confirm it, and left out otherwise; the winner of the match must stay known. In a money session, unreadable games are left out. Without it, the errors are reported so the file can be fixed |
+| `--origin` | none | `otb`: the matches whose `.bgdb.json` does not say otherwise were played over the board (an archive of tournaments): their real names are kept, and `"names": "pseudonyms"` does not apply to them. `online`: the opposite. A match declared over the board whose `Site` or event names an online platform is refused (`V-ORIGIN`) |
 | `--report` | none | write a JSON summary: the counts (`added`, `waiting`, ...), the shards sealed, and `repo` (size in MB, limits, `state` ok / warn / stop, `closed`); the ingest workflow reads it |
 | `--comment` | none | write the answer to the contributor as markdown: what was added, with links to the matches on the site (`siteUrl` below), what was already there, what could not be added. The ingest workflow posts it on the merged pull request and on the issue it came from |
 | `--config` | `bgdb.config.json` | licence, name, seal policy (`maxAttachmentKB`, default 2048), allowed video hosts, and the keys of a data repository below |
 
-Reads: `inbox/`, `data/*/matches`, `data/hashes/` (matches of shards that were moved away), the config. Writes: `data/<shard>/shard.json`, `matches/<h2>/<hash>.mat`, `<hash>.meta.json`, and
+Reads: `inbox/`, `data/*/matches`, `data/hashes/` (matches of shards that were moved away), `data/erased.tsv` (matches removed: refused, `V-ERASED`), the config. Writes: `data/<shard>/shard.json`, `matches/<h2>/<hash>.mat`, `<hash>.meta.json`, and
 `attachments/<h2>/<hash>.sgf|.xg`; deletes the files of every ingested or duplicate group from the inbox. Never writes into a sealed shard.
 A match that could only be added **partially** (some games cannot be read) is added only if its `.bgdb.json` says `"accept": "partial"` (or with `--salvage`); otherwise it stays in the inbox (`PARTIAL`, with its errors, what would be kept and how to accept). Exit 1 if any group was invalid or waits for acceptance.
 
@@ -108,6 +109,10 @@ the inbox; what they know and it does not (event, round, date) is kept. When non
 thousands of files).
 
 **A duplicate that brings something new** (a video link, tags, an SGF or XG file the match does not have yet, an event, round or date in its `.bgdb.json` that differs) **enriches the existing match** instead of being skipped: an enrichment record is written in `data/enrichments/` (see `bgdb enrich`), the shard is not touched, and the files leave the inbox. A duplicate that brings nothing new is only reported. When a shard is sealed, a digest of its files is recorded in its `shard.json` (see `bgdb build` and `bgdb verify`).
+
+**Player names** ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md)). The key `names` of the configuration: `"pseudonyms"` (what a data repository
+has) refuses a match that was not declared over the board when a player of it, or of its SGF or XG file, is not a pseudonym of a names key (`V-HANDLE`); the
+Contribute page and `bgdb hide-names` write them. `"as-is"` (the default of the tools) keeps names as they are.
 
 **A data repository among several** ([decision 0024](decisions/0024-data-repositories.md)). Four keys of the configuration:
 
@@ -205,6 +210,29 @@ The result is a record in `data/enrichments/<shard>/<h2>/<hash>.json` (with the 
 | `--contributor`, `--date` | recorded in the enrichment record |
 | `--dry-run` | say what would be added, write nothing |
 
+## bgdb erase
+
+`bgdb erase <id> --reason player-request|contributor-withdrawal|rights|legal [--data data] [--date YYYY-MM-DD] [--dry-run]`
+
+Removes a match from the database ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md)): a player asked for it, the contributor withdrew it, or for
+a reason of rights or law. It removes what this data folder holds of the match: its `.mat`, `.meta.json` and attachments in a local shard (whose counts in `shard.json`
+go down; a **sealed** shard gets the digest of its files recorded again, since a logged erasure is the one change a sealed shard allows, spec SH-03), its enrichment in
+`data/enrichments/`, and its line in the hash files of `data/hashes/`. Then it adds a line to **`data/erased.tsv`**: the content hash, the id, the date and the reason,
+never a name. `check`, `review` and `ingest` refuse that match if it is sent again, in any notation or format (`V-ERASED`); the build fails if it is still stored;
+`switch-data-repo` copies the list to the next data repository.
+
+| Option | Meaning |
+|---|---|
+| `<id>` | the match, `0001/21acddbb70ed09d5` |
+| `--reason` | `player-request`, `contributor-withdrawal`, `rights` or `legal` |
+| `--data` | the data folder (default `data`) |
+| `--date` | the date written in the list (default today) |
+| `--dry-run` | say what would be removed, write nothing |
+
+A match whose files live in another data repository (only its hash line is here) is erased there too: run the command in each repository that holds it, the
+one that stores it and the current one. Commit and push: the next Pages run drops it from the site. **The git history still holds the files**: the procedure to remove
+them is in [data-repositories.md](data-repositories.md#erasing-a-match). Exit code 1 when refused (unknown id, already erased), 2 for bad usage.
+
 ## bgdb verify
 
 `bgdb verify [--data data] [--shard id] [--record]`
@@ -264,6 +292,26 @@ for errors, a match that can only be added partially, or nothing new, the answer
 statement in the ZIP. **A pasted match** becomes `inbox/issue-<n>.txt` when it is valid. The optional "Event" answer is added as a header only when the match has none. A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
 comment is the answer to post on the issue. Exit code 1 when the issue cannot be used, 2 for bad usage.
 
+## bgdb hide-names
+
+`bgdb hide-names <file|dir>... --key-file file --out dir [--recursive] [--config file]`
+
+What the Contribute page does to the names, for a contributor who sends a pull request by hand ([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md)).
+Each match (the same groups of files as `ingest`) is checked, then written to `--out` as a normalised `.mat`, with its SGF or XG file rewritten: every player gets the
+pseudonym of the names key (`quick-skunk-a63a`), and the platform, the time of day, the event, the round, the ratings and the remarks are left out. Links, tags and
+`"accept": "partial"` of a `.bgdb.json` are kept. The files are named after the pseudonyms; the originals are not changed. Put the written files, not the originals,
+into `inbox/`.
+
+| Option | Meaning |
+|---|---|
+| `--key-file` | the names key: the file the Contribute page downloads (`bgdb-names-key.txt`, a line `bgdb-key-1:<64 hex>`). A file that does not exist is created with a new key: keep it private, and use it again so that the same opponent keeps the same name |
+| `--out` | the folder to write |
+| `--recursive` | also look inside sub-folders |
+| `--config` | as for `ingest` |
+
+A match played over the board keeps its real names: do not pass it through `hide-names`, write `"origin": "otb"` in its `.bgdb.json` instead. Exit code 1 if a match
+has errors, 2 for bad usage or an unreadable key file.
+
 ## bgdb anonymize
 
 `bgdb anonymize <file|dir>... [--recursive] [--write] [--check]`
@@ -322,7 +370,7 @@ The steps of [decision 0024](decisions/0024-data-repositories.md) that the maint
 repositories). Data repositories are checked out next to `bgdb` (`../<name>`); commits there use the git identity of the `bgdb` repository. Both change
 `sources.json` without committing it: review it and commit it in `bgdb`, which publishes the site. The procedures, step by step (installing `gh`, the secrets, the settings, undoing): **[data-repositories.md](data-repositories.md)**.
 
-`npm run new-data-repo -- <name> [--owner o] [--tools-ref v11] [--first-shard n] [--public] [--local] [--dry-run]`
+`npm run new-data-repo -- <name> [--owner o] [--tools-ref v12] [--first-shard n] [--public] [--local] [--dry-run]`
 
 First checks that `gh` is installed and logged in and that the tools are on GitHub (not with `--local`): if not, it stops before making anything. Then it makes `../<name>` from `templates/data-repo/` (five workflows that call the reusable workflows of `bgdb` at the tag `--tools-ref`, `bgdb.config.json` with
 `firstShard`, README, CONTRIBUTING, the issue form), commits it, writes `sources.json`, creates it on GitHub and pushes, allows squash merging, creates the label `submission`, turns Pages on
@@ -334,7 +382,7 @@ repository in `sources.json` as `current` if it is the first, else `next` (nothi
 |---|---|
 | `<name>` | the repository, for example `bgdb-data-2` |
 | `--owner o` | the GitHub account (default: the owner of the current data repository, else of `repository` in `bgdb.config.json`) |
-| `--tools-ref v11` | the tag of `bgdb` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v11`); it must exist on GitHub before the first workflow runs |
+| `--tools-ref v12` | the tag of `bgdb` its workflows use (default: `DEFAULT_TOOLS_REF` in `scripts/data-repos.mjs`, `v12`); it must exist on GitHub before the first workflow runs |
 | `--first-shard n` | the number of its first shard (default: after every shard of the repositories in `sources.json`, which must be checked out) |
 | `--public` | create it public (default private) |
 | `--local` | make the folder, the commit and `sources.json` only: nothing on GitHub |

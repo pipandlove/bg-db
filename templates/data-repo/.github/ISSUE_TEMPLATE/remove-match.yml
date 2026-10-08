@@ -1,0 +1,33 @@
+name: Remove a match
+description: You played in a match of this database (or you added it) and want it removed. A maintainer removes it and answers here.
+title: "Remove a match"
+labels: ["removal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is **public**. Give the number of the match only: do not write your name, your handle or anything else about yourself. The number is at the end of the match's address on the site (`#m=0001/21acddbb70ed09d5`): the "Ask for its removal" link of the match page fills it in for you.
+
+        Once removed, the match leaves the site at its next update, and the same match is refused if someone sends it again. Copies made before (downloads, mirrors) cannot be reached.
+  - type: input
+    id: match
+    attributes:
+      label: The match
+      description: Its number, such as 0001/21acddbb70ed09d5, or its address on the site.
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: You are
+      options:
+        - A player of this match
+        - The person who added it
+        - Someone else (say why below)
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Anything to add (optional)
+      description: Not needed for a player of the match. Still no names, please.

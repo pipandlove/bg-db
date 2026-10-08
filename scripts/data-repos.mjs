@@ -23,11 +23,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkSources } from '../packages/core/src/index.js';
-import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHashFile } from '../packages/cli/src/store.js';
+import { loadConfig, listShards, nextShardNumber, shardIdOf, readMetas, writeHashFile, readErased, erasedFilePath, ERASED_HEADER } from '../packages/cli/src/store.js';
 import { sealOpenShard } from '../packages/cli/src/shards.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_TOOLS_REF = 'v11';
+export const DEFAULT_TOOLS_REF = 'v12';
 const TEXT = new Set(['.md', '.json', '.yml', '.yaml', '']);
 
 /** run a program; the tests replace it to answer for gh */
@@ -353,6 +353,13 @@ export async function switchDataRepo(o = {}) {
       const received = path.join(dataA, 'hashes');
       if (fs.existsSync(received)) fs.mkdirSync(path.join(dataB, 'hashes'), { recursive: true });
       if (fs.existsSync(received)) for (const f of fs.readdirSync(received)) fs.copyFileSync(path.join(received, f), path.join(dataB, 'hashes', f));
+      // the matches erased here stay refused there (decision 0025)
+      const erasedA = erasedFilePath(dataA);
+      if (fs.existsSync(erasedA)) {
+        const have = readErased(dataB);
+        const add = fs.readFileSync(erasedA, 'utf8').split('\n').filter((l) => l && !l.startsWith('#') && !have.has(l.split('\t')[0]));
+        if (add.length) { fs.mkdirSync(dataB, { recursive: true }); fs.appendFileSync(erasedFilePath(dataB), `${fs.existsSync(erasedFilePath(dataB)) ? '' : ERASED_HEADER}${add.join('\n')}\n`); }
+      }
       const cfgB = JSON.parse(fs.readFileSync(path.join(B, 'bgdb.config.json'), 'utf8'));
       const first = lastShardOf(A) + 1;
       if (listShards(dataB).length === 0 && cfgB.firstShard !== first) {

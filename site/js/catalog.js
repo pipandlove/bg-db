@@ -46,6 +46,7 @@ export function decodeCatalog(cat, shardId) {
     const event = c.ev[i] >= 0 ? cat.dict.events[c.ev[i]] : '';
     const round = c.rd && c.rd[i] >= 0 ? cat.dict.rounds[c.rd[i]] : '';          // catalogs of version 1 have no rounds
     const date = c.date[i] || '';
+    const by = c.by && c.by[i] >= 0 ? cat.dict.contributors[c.by[i]] : '';        // catalogs before version 3 have no contributors
     const n0 = normalizeName(p0);
     const n1 = normalizeName(p1);
     const eventNorm = normalizeName(event);
@@ -54,7 +55,7 @@ export function decodeCatalog(cat, shardId) {
       shard: shardId, hash: c.id[i], id: `${shardId}/${c.id[i]}`,
       p0, p1, n0, n1, event, eventNorm, round, roundNorm, hay: `${n0} ${n1} ${eventNorm} ${roundNorm}`,
       len: c.len[i], date, year: /^\d{4}/.test(date) ? +date.slice(0, 4) : null,
-      games: c.n[i], s0: c.s0[i], s1: c.s1[i], win: c.win[i], flags: c.fl[i],
+      games: c.n[i], s0: c.s0[i], s1: c.s1[i], win: c.win[i], flags: c.fl[i], by, byNorm: by.toLowerCase(),
     };
   }
   return rows;

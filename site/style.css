@@ -208,3 +208,6 @@ p.actions { margin: 1.5rem 0; }
 .step label.button { display: inline-block; }
 .step label.button:hover { border-color: var(--accent); }
 p.names { margin: .4rem 0; }
+.card .otb { margin: .5rem 0; }
+.card .otb p { margin: .25rem 0; }
+p.removal { margin: 1rem 0 0; }

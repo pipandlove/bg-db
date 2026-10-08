@@ -73,7 +73,7 @@ Every numbered requirement of the specification, with the file that defines it. 
 |---|---|
 | [SH-01](05-storage.md#SH-01) | Exactly one shard is open at any time; it receives new matches. All others are sealed. |
 | [SH-02](05-storage.md#SH-02) | A shard is sealed automatically when any threshold in the registry’s sealPolicy is reached (default: 5 000 matches, so that the open shard, ... |
-| [SH-03](05-storage.md#SH-03) | Sealed shards are immutable. Corrections and removals are expressed as overlays ([§5](05-storage.md)). |
+| [SH-03](05-storage.md#SH-03) | Sealed shards are immutable, except by a logged erasure ([CR-02](10-contribution.md#CR-02)), which records their digest again. Corrections a... |
 | [SH-04](05-storage.md#SH-04) | Content attributes (date, players, event, length) are exposed through per-shard summaries in shard.json, never through the shard assignment. |
 | [SH-05](05-storage.md#SH-05) | When a shard is sealed, a digest of all its files is recorded in its shard.json. A build that finds the digest unchanged trusts the shard wi... |
 
@@ -237,7 +237,7 @@ Every numbered requirement of the specification, with the file that defines it. 
 | ID | Summary |
 |---|---|
 | [CR-01](10-contribution.md#CR-01) | Corrections to sealed shards are stored as overlay or enrichment records ([[OV-01]](05-storage.md#OV-01)) and take effect at the next site b... |
-| [CR-02](10-contribution.md#CR-02) | A takedown request is accepted through an issue form and acted on promptly ([§11](11-rights-governance.md)). Hard removal (history rewrite) ... |
+| [CR-02](10-contribution.md#CR-02) | A takedown request is accepted through an issue form ("Remove a match", linked from each match page, giving the match number only) and acted... |
 
 ## RC - Recognition
 
@@ -267,7 +267,7 @@ Every numbered requirement of the specification, with the file that defines it. 
 |---|---|
 | [RP-01](11-rights-governance.md#RP-01) | Data is published under the CC0 1.0 public-domain dedication (SPDX CC0-1.0, [decision 0009](../decisions/0009-data-licence.md)). The licence... |
 | [RP-02](11-rights-governance.md#RP-02) | Contributors affirm they have the right to share what they submit. Content scraped from other databases without permission MUST NOT be accep... |
-| [RP-03](11-rights-governance.md#RP-03) | Player names are replaced before a submission leaves the contributor's computer: the contribution page gives every player a pseudonym comput... |
+| [RP-03](11-rights-governance.md#RP-03) | Online players appear under pseudonyms, over-the-board players under their real names ([decision 0025](../decisions/0025-online-players-otb-... |
 | [RP-06](11-rights-governance.md#RP-06) | Attachments (SGF, XG) and video links are covered by the same declaration as the match. A contributor MUST NOT attach files, or link videos,... |
 | [RP-04](11-rights-governance.md#RP-04) | Analysis files record the engine and licence conditions; analysis produced by software whose terms forbid redistribution MUST NOT be accepte... |
 | [RP-05](11-rights-governance.md#RP-05) | Governance is lightweight: maintainers decide policy through public issues; significant changes follow the proposal process of [§12](12-evol... |

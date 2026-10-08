@@ -3,7 +3,7 @@
  *   name.mat | name.txt   the match as text (preferred)
  *   name.sgf              GNU Backgammon SGF (may carry analysis): kept as an attachment; also usable as the match itself
  *   name.xg               eXtreme Gammon file (binary, with analysis): read like the others (it can be the match itself) and kept as an attachment
- *   name.bgdb.json        optional extras: { "links": [...], "tags": [...], "illegal": [...], "accept": "partial", "event", "round", "date" }
+ *   name.bgdb.json        optional extras: { "links": [...], "tags": [...], "illegal": [...], "accept": "partial", "event", "round", "date", "origin": "otb" }
  *
  * `analyzeGroup` is the single check used everywhere: by `bgdb ingest`, by the pull-request review, and by the "contribute" page in the
  * browser (spec EAS-04: one validator, two runtimes). It does no input/output: files come in as bytes.
@@ -14,7 +14,8 @@ import { contentHash } from './identity.js';
 import { writeMat } from './mat-writer.js';
 import { normalizeVideoLink } from './links.js';
 import { sha256Hex } from './sha256.js';
-import { cleanHeaderMetadata } from './metadata.js';
+import { cleanHeaderMetadata, onlinePlatform } from './metadata.js';
+import { isPseudonym } from './pseudonym.js';
 
 export const TAG_RE = /^[a-z0-9][a-z0-9-]{0,30}$/;
 const KINDS = { '.mat': 'mat', '.txt': 'txt', '.sgf': 'sgf', '.xg': 'xg' };
@@ -54,6 +55,8 @@ const warn = (code, message, hint) => ({ severity: 'warning', code, message, ...
 const text = (bytes) => decodeText(bytes).text;
 const info = (code, message) => ({ severity: 'info', code, message });
 export const META_KEYS = ['event', 'round', 'date'];
+/** where a match was played (decision 0025): "otb" (over the board: real names are published) or "online" (the default: pseudonyms) */
+export const ORIGINS = ['otb', 'online'];
 const DATE_RE = /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/;
 
 /** a reviewed value of the sidecar (decision 0022): a short text, or null for "none" */
@@ -73,10 +76,14 @@ export function parseSidecar(name, bytes, config, warnings) {
   try { j = JSON.parse(text(bytes)); } catch (e) {
     return { error: err('V-FORMAT', `${name} is not valid JSON (${e.message})`, 'The file must look like {"links": [{"url": "https://youtu.be/..."}], "tags": ["final"]}.') };
   }
-  const out = { links: [], tags: [], illegal: [], accept: null, meta: {} };
+  const out = { links: [], tags: [], illegal: [], accept: null, meta: {}, origin: null };
   if (j?.accept !== undefined) {
     if (j.accept === 'partial') out.accept = 'partial';                 // the contributor agrees that the match is added partially (decision 0021)
     else warnings.push(warn('V-META', `${name}: "accept" can only be "partial"; it was ignored`));
+  }
+  if (j?.origin !== undefined) {
+    if (ORIGINS.includes(j.origin)) out.origin = j.origin;
+    else warnings.push(warn('V-META', `${name}: "origin" can only be "otb" (over the board) or "online"; it was ignored`));
   }
   for (const k of META_KEYS) {
     if (j?.[k] === undefined) continue;
@@ -84,7 +91,7 @@ export function parseSidecar(name, bytes, config, warnings) {
     if (r.ok) out.meta[k] = r.value;
     else warnings.push(warn('V-META', `${name}: "${k}" was ignored (${k === 'date' ? 'a date is written 2025-07-26, 2025-07 or 2025' : 'a text of at most 120 characters, or null'})`));
   }
-  for (const k of Object.keys(j ?? {})) if (!['links', 'tags', 'illegal', 'accept', ...META_KEYS].includes(k)) warnings.push(warn('V-META', `${name}: the key "${k}" is not used and was ignored`));
+  for (const k of Object.keys(j ?? {})) if (!['links', 'tags', 'illegal', 'accept', 'origin', ...META_KEYS].includes(k)) warnings.push(warn('V-META', `${name}: the key "${k}" is not used and was ignored`));
   for (const l of Array.isArray(j?.links) ? j.links : []) {
     const r = normalizeVideoLink(l, { hosts: config.videoHosts });
     if (r.ok) out.links.push(r.link); else warnings.push(warn('V-LINK', `A video link was ignored: ${r.reason}`, 'Use an https link to a YouTube video.'));
@@ -138,11 +145,27 @@ function attachments(group, primary, config, full, warnings, readOpts) {
 }
 
 /**
+ * The names a database that publishes pseudonyms only (config.names "pseudonyms", decision 0025) refuses: every side of the match and of
+ * its attachments must be a pseudonym (or have no name), unless the match was played over the board.
+ * @returns {object|null} the error
+ */
+function handleError(names, unchecked) {
+  const bad = names.filter((n) => n && !isPseudonym(n));
+  if (!bad.length && !unchecked) return null;
+  const hint = 'Send it from the Contribute page of the site: it replaces the names before anything is sent. A match played over the board (a tournament, a club, at home) keeps its real names: tick "played over the board" there, or write "origin": "otb" in its .bgdb.json.';
+  if (!bad.length) return err('V-HANDLE', `${unchecked} could not be read, so its player names cannot be checked: this database publishes online matches under made-up names only`, hint);
+  return err('V-HANDLE', `${bad.length === 1 ? 'A player' : `${bad.length} players`} of this match ${bad.length === 1 ? 'is' : 'are'} named as in the file ("${bad[0].slice(0, 2)}…"): this database publishes online matches under made-up names only`, hint);
+}
+
+/**
  * Check one group of files.
  * @param {{base:string, files:Record<string,{name:string, bytes:Uint8Array}[]>}} group
- * @param {{config:{videoHosts?:string[], sealPolicy?:object}, known?:{get(fullHash:string):string|undefined}, salvage?:boolean, fill?:object}} ctx
+ * @param {{config:{videoHosts?:string[], sealPolicy?:object, names?:string}, known?:{get(fullHash:string):string|undefined}, erased?:{get(fullHash:string):object|undefined}, salvage?:boolean, fill?:object, origin?:string}} ctx
  *   fill: event, round or date to use when the file has none (taken from another transcription of the match, decision 0023)
  *   known: what is already in the database (a Map from full content hash to match id works; so does any object with get())
+ *   erased: the matches removed from the database (decision 0025): they are refused
+ *   origin: where the matches were played when their sidecar does not say ("otb" for an archive of tournaments, `bgdb ingest --origin otb`)
+ *   config.names: "pseudonyms" = a match that was not played over the board must have pseudonyms (V-HANDLE); anything else = names as they are
  * @returns {{status:'new'|'duplicate'|'partial'|'error', errors:object[], warnings:object[], infos:object[], base:string, [k:string]:any}}
  */
 export function analyzeGroup(group, ctx) {
@@ -185,6 +208,7 @@ export function analyzeGroup(group, ctx) {
   warnings.push(...r.warnings);
   base.infos = [...r.infos];
   // event and round: the headers cleaned (decision 0022), then what the contributor reviewed in the sidecar
+  const rawEvent = r.match.event;
   const h = cleanHeaderMetadata(r.match);
   r.match.event = h.event;
   r.match.round = h.round;
@@ -197,29 +221,46 @@ export function analyzeGroup(group, ctx) {
     base.infos.push(info('V-COPY', `The ${k} "${v}" was taken from another transcription of this match`));
   }
   const full = contentHash(r.match);
+  // a match removed from the database (decision 0025) is not added again, in any notation or format
+  const gone = ctx.erased?.get(full);
+  if (gone) return fail([err('V-ERASED', `This match was removed from the database (${gone.reason ?? 'erased'}, ${gone.date ?? 'date unknown'}) and cannot be added again`)]);
+  // over the board: real names; online or unknown: pseudonyms (decision 0025)
+  const origin = sc.origin ?? ctx.origin ?? null;
+  if (origin === 'otb') {
+    const platform = onlinePlatform(r.match.provenance?.site, rawEvent);
+    if (platform) return fail([err('V-ORIGIN', `The match is declared as played over the board, but the file names an online platform ("${platform}")`, 'An online match is sent with made-up names: remove "origin": "otb" (on the Contribute page, untick "played over the board").')]);
+  }
+  const strict = config.names === 'pseudonyms' && origin !== 'otb';
   const links = r.match.links ?? [];
   for (const l of sc.links) if (!links.some((x) => x.url === l.url && x.game === l.game)) links.push(l);
   const summary = {
     players: r.match.sides.map((s) => s.name), matchLength: r.match.matchLength, date: r.match.date ?? null, event: r.match.event ?? null, round: r.match.round ?? null,
     games: r.match.games.length, result: r.match.result ?? null,
   };
-  const common = { ...base, match: r.match, full, hash16: full.slice(0, 16), summary, links, tags: sc.tags, sidecar: sc, primary, ...(partial ? { partial } : {}) };
+  const common = { ...base, match: r.match, full, hash16: full.slice(0, 16), summary, links, tags: sc.tags, sidecar: sc, primary, origin, ...(partial ? { partial } : {}) };
+  const unchecked = (atts) => atts.find((a) => !a.verified)?.name;
+  const attNames = (atts) => atts.flatMap((a) => a.sides ?? []);
 
   // 4. already in the database?
   const dup = known?.get(full);
   if (dup !== undefined) {
     // what comes with it (links, tags, an SGF or XG file) can enrich the existing match: attachments are prepared here as well
     const extra = attachments(group, primary, config, full, warnings, readOpts);
+    const he = strict && extra.length ? handleError(attNames(extra), unchecked(extra)) : null;
+    if (he) return fail([he]);
     const sgfAsPrimary = primary.kind === 'sgf';
     const extrasIgnored = !!((group.files.sgf?.length && !sgfAsPrimary) || group.files.xg?.length || group.files.side?.length || links.length || (sgfAsPrimary && extra.length));
     return { ...common, status: 'duplicate', duplicateOf: dup, extrasIgnored, attachments: extra, errors: [] };
   }
+
+  if (strict) { const he = handleError(summary.players, null); if (he) return fail([he]); }
 
   // 5. a partial match the contributor has not accepted: nothing is added; they get what would be stored, to look at it and decide
   if (partial && !partial.accepted) return { ...common, status: 'partial', errors: [], text: matchText, attachments: [], normalised: writeMat(r.match) };
 
   // 6. attachments, and the check that an SGF agrees with the text on the points
   const atts = attachments(group, primary, config, full, warnings, readOpts);
+  if (strict) { const he = handleError(attNames(atts), unchecked(atts)); if (he) return fail([he]); }
   for (const a of atts) {
     if (a.results && primary.kind === 'text') {                      // an SGF or an XG file read from the same match: the points are compared
       const mine = r.match.games.map((x) => [x.result.winner, x.result.points]);

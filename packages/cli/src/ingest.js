@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { groupFiles, analyzeGroup, buildMeta, sha256Hex, displayKey, CANONICAL_VERSION, readZip, decodeText } from '@bgdb/core';
-import { listShards, writeShardInfo, matchPaths, attachmentPath, loadHashIndex, shardIdOf, treeDigest, readMetas, nextShardNumber, repoSize, repoState } from './store.js';
+import { listShards, writeShardInfo, matchPaths, attachmentPath, loadHashIndex, shardIdOf, treeDigest, readMetas, nextShardNumber, repoSize, repoState, readErased } from './store.js';
 import { enrichMatch, readLocalMeta, listEnrichments, currentMeta, ID_RE } from './enrich.js';
 import { reconcileInbox } from './reconcile.js';
 
@@ -107,7 +107,8 @@ export function storedMatches(shards, dataDir) {
 
 /**
  * @param {{inbox:string, data:string, config:object, contributor?:string, submittedAt?:string, dryRun?:boolean, maxMatches?:number, maxMB?:number,
- *          onStart?:(groups:number)=>void, onStep?:(text:string)=>void, onResult?:(result:object)=>void}} o
+ *          origin?:string, onStart?:(groups:number)=>void, onStep?:(text:string)=>void, onResult?:(result:object)=>void}} o
+ *   origin: where the matches were played when their sidecar does not say ("otb": an archive of tournaments, decision 0025)
  *   onStart, onResult: progress, called before the first group and after each one (a long ingest shows what it does as it goes)
  */
 export function ingest(o) {
@@ -134,6 +135,7 @@ export function ingest(o) {
   const r3 = (x) => Math.round(x * 1000) / 1000;
   const repo = () => ({ mb: r3(size.mb + addedMB), dataMB: r3(size.dataMB + addedMB), gitMB: size.gitMB === null ? null : r3(size.gitMB), ...policy2, state: repoState(size.mb + addedMB, policy2), closed: o.config.closed });
   const { byFull, byPrefix } = loadHashIndex(shards, o.data);
+  const erased = readErased(o.data);
   const stored = storedMatches(shards, o.data);
   const shown = new Map();                                       // display key -> id: to warn about a new match that looks the same as another
   for (const m of stored) if (!shown.has(displayKey(m))) shown.set(displayKey(m), m.id);
@@ -169,7 +171,7 @@ export function ingest(o) {
       continue;
     }
     const kept = recon.keep.get(g.key);
-    const res = analyzeGroup(g, { config: o.config, known: byFull, salvage: !!o.salvage, fill: kept?.fill });
+    const res = analyzeGroup(g, { config: o.config, known: byFull, erased, salvage: !!o.salvage, fill: kept?.fill, origin: o.origin });
     for (const n of kept?.notes ?? []) res.warnings.push({ severity: 'warning', code: 'V-COPY', message: n[0].toUpperCase() + n.slice(1) });
     const tie = tieOf.get(g.key);
     if (tie) {
@@ -236,7 +238,7 @@ export function ingest(o) {
     const codes = [...new Set(res.warnings.map((w) => w.code))].sort();
     const meta = buildMeta(match, {
       id, contentHash: full, canonicalVersion: CANONICAL_VERSION, originalHash: res.originalHash,
-      contributor: o.contributor ?? null, submittedAt, license: o.config.license, warnings: codes, attachments: attMeta, links: res.links,
+      contributor: o.contributor ?? null, submittedAt, license: o.config.license, warnings: codes, attachments: attMeta, links: res.links, origin: res.origin,
     });
     meta.tags = res.tags;
     const metaText = JSON.stringify(meta, null, 2) + '\n';

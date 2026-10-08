@@ -10,6 +10,9 @@ import { sha256Hex } from './sha256.js';
 import { normalizeName } from './names.js';
 import { inflateZlib } from './inflate.js';
 import { crc32 } from './zip.js';
+import { readMatch, readMatchBytes } from './read.js';
+import { contentHash } from './identity.js';
+import { writeMat } from './mat-writer.js';
 
 export const KEY_BYTES = 32;
 const KEY_TAG = 'bgdb-key-1';
@@ -29,9 +32,13 @@ const ANIMALS = [
 ];
 export const WORDS = { adjectives: ADJECTIVES, animals: ANIMALS };
 
-const PSEUDONYM_RE = /^anon-[a-z]+-[a-z]+-[0-9a-f]{4}$/;
-/** a name that is already a pseudonym (a match sent again) keeps it */
-export const isPseudonym = (name) => PSEUDONYM_RE.test(String(name ?? ''));
+// "anon-" was the prefix of the first release (tools v11): names written then are still pseudonyms
+const PSEUDONYM_RE = /^(?:anon-)?([a-z]+)-([a-z]+)-[0-9a-f]{4}$/;
+/** a name made by `pseudonym` (an adjective and an animal of the lists, four hex characters): a match sent again keeps it */
+export function isPseudonym(name) {
+  const m = String(name ?? '').match(PSEUDONYM_RE);
+  return !!m && ADJECTIVES.includes(m[1]) && ANIMALS.includes(m[2]);
+}
 
 const hexToBytes = (hex) => Uint8Array.from(hex.match(/../g), (b) => parseInt(b, 16));
 const bytesToHex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
@@ -79,12 +86,12 @@ export const keyFromHex = (hex) => (/^[0-9a-f]{64}$/.test(hex ?? '') ? hexToByte
 export const keyFingerprint = (key) => sha256Hex(concat(utf8('bgdb-key-fingerprint\n'), key)).slice(0, 8);
 
 /**
- * The pseudonym of a handle: HMAC-SHA-256(key, normalised handle) turned into "anon-<adjective>-<animal>-<4 hex>" (28 bits).
+ * The pseudonym of a handle: HMAC-SHA-256(key, normalised handle) turned into "<adjective>-<animal>-<4 hex>" (28 bits).
  * The handle is normalised as for search (case, accents, spaces), so "Sam " and "sam" get the same name.
  */
 export function pseudonym(key, handle) {
   const h = hmacSha256(key, utf8(NAME_DOMAIN + normalizeName(handle)));
-  return `anon-${ADJECTIVES[h[0] & 63]}-${ANIMALS[h[1] & 63]}-${bytesToHex(h.subarray(2, 4))}`;
+  return `${ADJECTIVES[h[0] & 63]}-${ANIMALS[h[1] & 63]}-${bytesToHex(h.subarray(2, 4))}`;
 }
 
 /** @returns {(name:string|null)=>string|null} the names of one key; a name that is already a pseudonym, or no name, is kept */
@@ -109,6 +116,36 @@ export function pseudonymizeMatch(match, nameOf) {
     time: null, event: null, round: null, remarks: [],
     provenance: { ...match.provenance, site: null, siteMatchId: null },
   };
+}
+
+/**
+ * A checked contribution (a result of analyzeGroup, status new or partial) as it will be sent, with pseudonyms: the normalised .mat written
+ * from the match with the names replaced and the platform, time, event, round, ratings and remarks left out, read again to check that it is
+ * the same match; the SGF and XG files rewritten the same way. The original files are never sent. An attachment that cannot be rewritten
+ * cleanly is left out, with a note. Used by the Contribute page and by `bgdb hide-names`.
+ * @returns {Promise<{match:object, normalised:string, players:string[], attachments:{kind:string, ext:string, bytes:Uint8Array}[], notes:string[]}>}
+ */
+export async function hideNames(res, nameOf) {
+  const salvage = res.status === 'partial';
+  const normalised = writeMat(pseudonymizeMatch(res.match, nameOf));
+  const back = readMatch(normalised, { salvage });
+  if (!back.ok || contentHash(back.match) !== res.full) throw new Error('the match with the new names does not read back to the same match (please report this file)');
+  const attachments = [];
+  const notes = [];
+  // the attachments the check kept (the same match, verified); a partial match has none
+  for (const a of res.attachments ?? []) {
+    const label = `The ${a.kind.toUpperCase()} file ${a.name}`;
+    if (!a.verified) { notes.push(`${label} was left out: it could not be read, so its names cannot be replaced.`); continue; }
+    try {
+      const bytes = a.kind === 'sgf' ? new TextEncoder().encode(rewriteSgf(new TextDecoder().decode(a.bytes), nameOf)) : await rewriteXg(a.bytes, nameOf);
+      const r = readMatchBytes(bytes);
+      if (!r.ok || contentHash(r.match) !== res.full) throw new Error('it no longer reads back to the same match');
+      attachments.push({ kind: a.kind, ext: `.${a.kind}`, bytes });
+    } catch (e) {
+      notes.push(`${label} was left out: its names could not be replaced (${e.message}).`);
+    }
+  }
+  return { match: back.match, normalised, players: back.match.sides.map((x) => x.name), attachments, notes };
 }
 
 // ---------------------------------------------------------------- SGF

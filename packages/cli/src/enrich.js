@@ -142,12 +142,14 @@ export function enrichByRef(o) {
     if (TAG_RE.test(t)) tags.push(t); else errors.push(`The tag "${t}" is not valid (lower-case letters, digits and "-", at most 31 characters).`);
   }
   const attachments = [];
+  // an online match takes files with pseudonyms only, when the database asks for them (V-HANDLE, decision 0025)
+  const ctx = { config: o.config, known: new Map([[found.full, found.id]]), origin: found.meta?.provenance?.origin };
   const maxBytes = (o.config.sealPolicy?.maxAttachmentKB ?? 2048) * 1024;
   if (o.sgf) {
     if (o.sgf.length > maxBytes) errors.push(`The SGF file is larger than ${o.config.sealPolicy.maxAttachmentKB} KB.`);
     else {
-      const res = analyzeGroup({ base: 'sgf', files: { sgf: [{ name: 'the SGF file', bytes: o.sgf }] } }, { config: o.config, known: new Map([[found.full, found.id]]) });
-      if (res.status === 'error') errors.push(`The SGF file cannot be read: ${res.errors[0].message}`);
+      const res = analyzeGroup({ base: 'sgf', files: { sgf: [{ name: 'the SGF file', bytes: o.sgf }] } }, ctx);
+      if (res.status === 'error') errors.push(res.errors[0].code === 'V-HANDLE' ? `The SGF file: ${res.errors[0].message}.` : `The SGF file cannot be read: ${res.errors[0].message}`);
       else if (res.status === 'new') errors.push(`The SGF file is not the match ${found.id} (it describes another match).`);
       else attachments.push(...res.attachments.map((a) => ({ ...a, name: 'the SGF file' })));
     }
@@ -156,8 +158,9 @@ export function enrichByRef(o) {
     if (o.xg.length > maxBytes) errors.push(`The XG file is larger than ${o.config.sealPolicy.maxAttachmentKB} KB.`);
     else if (String.fromCharCode(...o.xg.subarray(0, 4)) !== 'RGMH') errors.push('The XG file is not an eXtreme Gammon file (it does not start with "RGMH").');
     else {
-      const res = analyzeGroup({ base: 'xg', files: { xg: [{ name: 'the XG file', bytes: o.xg }] } }, { config: o.config, known: new Map([[found.full, found.id]]) });
+      const res = analyzeGroup({ base: 'xg', files: { xg: [{ name: 'the XG file', bytes: o.xg }] } }, ctx);
       if (res.status === 'new') errors.push(`The XG file is not the match ${found.id} (it describes another match).`);
+      else if (res.errors?.[0]?.code === 'V-HANDLE') errors.push(`The XG file: ${res.errors[0].message}.`);
       else if (res.status === 'duplicate') attachments.push(...res.attachments.map((a) => ({ ...a, name: 'the XG file' })));
       else {                                                         // a variant of the format that the reader does not know: kept unchecked
         warnings.push(`The XG file could not be read (${res.errors[0].message}); it is kept unchecked.`);

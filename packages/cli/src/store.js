@@ -21,6 +21,7 @@ export const DEFAULT_CONFIG = {
   firstShard: null,                // the number of this repository's first shard (shard numbers are global: an earlier repository used those below it)
   repoPolicy: { warnMB: 800, stopMB: 950 },   // the ingest warns above warnMB, and adds nothing above stopMB (GitHub: about 1 GB per repository and per Pages site)
   closed: false,                   // true: this repository takes no more contributions (the review says "closed"), and opens no new shard
+  names: 'as-is',                  // "pseudonyms": a match not played over the board must come with pseudonyms (V-HANDLE, decision 0025)
 };
 
 /** the external shards of the configuration, checked: a wrong entry would break the site for everybody */
@@ -45,6 +46,7 @@ export function loadConfig(file = 'bgdb.config.json') {
   const { warnMB, stopMB } = config.repoPolicy;
   if (!(warnMB > 0 && stopMB > warnMB)) throw new Error(`${file}: "repoPolicy" needs 0 < warnMB < stopMB (in MB)`);
   if (typeof config.closed !== 'boolean') throw new Error(`${file}: "closed" must be true or false`);
+  if (!['as-is', 'pseudonyms'].includes(config.names)) throw new Error(`${file}: "names" must be "pseudonyms" or "as-is"`);
   return config;
 }
 
@@ -159,6 +161,27 @@ function readHashFiles(dataDir) {
     shard: f.slice(0, -4),
     entries: fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter(Boolean).map((l) => l.split('\t')),
   }));
+}
+
+/**
+ * The matches removed from the database (decision 0025): data/erased.tsv, one line per match, "<content hash>\t<id>\t<date>\t<reason>".
+ * No names: it only lets check, review and ingest refuse the same match if it is sent again. It is carried to the next data repository.
+ */
+export const erasedFilePath = (dataDir) => path.join(dataDir, 'erased.tsv');
+export const ERASE_REASONS = ['player-request', 'contributor-withdrawal', 'rights', 'legal'];
+export const ERASED_HEADER = '# matches removed from the database (decision 0025): content hash, id, date, reason. Names are never written here.\n';
+
+/** @returns {Map<string, {id:string, date:string, reason:string}>} by full content hash */
+export function readErased(dataDir) {
+  const f = erasedFilePath(dataDir ?? '');
+  const out = new Map();
+  if (!dataDir || !fs.existsSync(f)) return out;
+  for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+    if (!line || line.startsWith('#')) continue;
+    const [hash, id, date, reason] = line.split('\t');
+    out.set(hash, { id, date, reason });
+  }
+  return out;
 }
 
 /** Index of every known content hash across all shards, local or moved away (used for duplicate and collision detection). */

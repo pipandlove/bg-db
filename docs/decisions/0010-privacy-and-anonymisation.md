@@ -2,7 +2,7 @@
 
 # 0010 - Privacy: anonymised match IDs, handles kept
 
-**Status:** accepted; its rule on names ("ingestion keeps player names and handles") is superseded for the Contribute page by [decision 0025](0025-online-players-otb-names-and-erasure.md) (2026-10-08): every player of a match sent from the page gets a pseudonym computed with the contributor's key. Ingestion itself still keeps the names it is given (an archive imported by the maintainer); real names over the board and erasure are still proposed.
+**Status:** accepted; its rule on names ("ingestion keeps player names and handles") is superseded by [decision 0025](0025-online-players-otb-names-and-erasure.md) (2026-10-08): real names over the board, pseudonyms online. Every player of a match sent from the Contribute page gets a pseudonym computed with the contributor's key, unless the contributor declares the match played over the board; a data repository refuses other names (`"names": "pseudonyms"`, `V-HANDLE`); a match can be erased (`bgdb erase`). The tools themselves keep the names they are given (`"names": "as-is"`, the default), which the fixtures rule below still governs.
 
 **Context.** Real match files carry identifiers that point back to a site's records (`Match ID`), player handles, sometimes real names (tournament
 transcripts), and a `Transcriber` credit. The project owner decided that **match identifiers may be anonymised and handles do not need to be**.

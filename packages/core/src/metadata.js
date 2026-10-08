@@ -23,7 +23,20 @@ const SERVER_PREFIX_RE = new RegExp(`^(?:${SERVERS.join('|')})(?=[\\s:,;/-])`, '
 const SERVER_SUFFIX_RE = new RegExp(`(?<=[\\s:,;/-])(?:${SERVERS.join('|')})$`, 'i');
 const SERVER_ANY_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:${SERVERS.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 
-const EVENT_PLACEHOLDER = /^(?:online match|unknown|none|n\/?a|event|-+|\?+)$/i;
+/** online platforms (not programs): a match whose Site or event names one was played online (decision 0025) */
+const ONLINE = [
+  'opengammon', 'backgammon ?galaxy', 'galaxy backgammon', 'play\\.backgammongalaxy\\.com', 'gamesgrid', 'gridgammon', 'playok', 'foxamon',
+  'choue\\.net', 'choue', 'fibs', 'dailygammon', 'backgammon heroes', 'heroes', 'safe harbor games', 'backgammon ?hub', 'nextgammon', 'backgammon\\.com',
+];
+const ONLINE_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:${ONLINE.join('|')})(?![\\p{L}\\p{N}])`, 'iu');
+
+/** @returns {string|null} the online platform a text names ("OpenGammon", "Galaxy Backgammon River Cup"), or null */
+export function onlinePlatform(...texts) {
+  for (const t of texts) { const m = String(t ?? '').match(ONLINE_RE); if (m) return m[0]; }
+  return null;
+}
+
+const EVENT_PLACEHOLDER =/^(?:online match|unknown|none|n\/?a|event|-+|\?+)$/i;
 const ROUND_PLACEHOLDER = /^(?:(?:round\s*)?0|unknown|none|n\/?a|-+|\?+)$/i;
 
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();

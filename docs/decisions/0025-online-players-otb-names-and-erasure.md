@@ -2,10 +2,11 @@
 
 # 0025 - Online players under pseudonyms, real names over the board, erasing a match
 
-**Status:** accepted in part (2026-10-08): points 3 and 4, for every match sent from the Contribute page, with the choices listed in
-*Decided* below. Built: the names key, the pseudonyms, the rewriting of `.mat`, `.sgf` and `.xg` files in the browser. Still proposed: the
-over-the-board declaration with real names (5), `bgdb erase` (6), the "submitted by" search (7) and `V-HANDLE` (8). The owner still plans
-to ask each platform's forum what it allows (questions at the end).
+**Status:** accepted (2026-10-08), with the choices listed in *Decided* below. Built: the names key, the pseudonyms and the
+rewriting of `.mat`, `.sgf` and `.xg` files in the browser (points 3 and 4, tools v11); then the over-the-board declaration with real names
+(5), `bgdb erase` (6), the "submitted by" search (7), `V-HANDLE` (8) and `bgdb hide-names` for pull requests made by hand. Point 2 (the
+contributor's own side keeps its handle) is not built: both sides get pseudonyms. The owner still plans to ask each platform's forum what it
+allows (questions at the end).
 
 What the platform shows and promises about players depends on this decision, so it is written out in full to be re-read before
 choosing. It is not legal advice.
@@ -15,8 +16,8 @@ choosing. It is not legal advice.
 The owner chose the secret key per contributor as the best compromise, and asked for it to be as smooth as possible: one step of the
 Contribute page, shown in full only while the browser has no key, which says what the key is for and that a match can be sent without one.
 
-- **Every match sent from the Contribute page gets pseudonyms**, whatever its origin: no "online or over the board?" question yet. The
-  over-the-board box with real names (5) comes later, together with erasure (6), which it depends on.
+- **Every match sent from the Contribute page gets pseudonyms**, unless the contributor ticks "played over the board" for it (2026-10-08,
+  point 5): then its real names are sent, with `"origin": "otb"`. The box is not offered when the file names an online platform.
 - **Both sides get a pseudonym**, the contributor's own handle included (point 2 is not built): no "which player are you?" question. A
   contributor finds their matches through their key (the same names every time) and, later, the "submitted by" search (7).
 - **The time of day is removed, the date is kept** (the open question of point 4). The platform name goes, as planned in point 1; so do the
@@ -25,13 +26,26 @@ Contribute page, shown in full only while the browser has no key, which says wha
 - **The `.xg` file is rewritten, not left out**: its name fields are written with the pseudonyms and the other text fields cleared (point 4).
   XG leaves the end of an older, longer name behind a shorter one in the same field (a fixture held a third player's handle that way), so
   whole fields are cleared. A rewritten file must read back to the same match and no longer contain the old names, or it is not sent.
-- **The pseudonym format:** `anon-<adjective>-<animal>-<4 hex>` (64 adjectives, 64 animals, 16 bits: 28 bits in all), from
-  HMAC-SHA-256(key, `"bgdb-name-1\n"` + the handle normalised as for search). The key file is a text file with one line `bgdb-key-1:<64 hex>`.
+- **The pseudonym format:** `<adjective>-<animal>-<4 hex>`, such as `quick-skunk-a63a` (64 adjectives, 64 animals, 16 bits: 28 bits in
+  all), from HMAC-SHA-256(key, `"bgdb-name-1\n"` + the handle normalised as for search). The key file is a text file with one line
+  `bgdb-key-1:<64 hex>`. Tools v11 wrote `anon-` before it; the owner dropped it on 2026-10-08 (it only took room in the list). A name is
+  recognised as a pseudonym when its two words come from the lists, with or without that prefix.
 - **The pull request route** stays open for maintainers and tests, but the guides now tell contributors to send the ZIP of the page only;
   the issue form no longer offers to paste a match.
 
-How it works for a contributor: [contributing-flow.md](../contributing-flow.md#player-names). Code: `packages/core/src/pseudonym.js`,
-`site/js/contribute-model.js` (`hideNames`), `site/js/contribute.js` (the key step).
+- **Over the board and online platforms** (the open question of point 5): a match declared over the board whose `Site` or event names an
+  online platform is refused (`V-ORIGIN`). The declaration does not win: an online match is sent with pseudonyms.
+- **The names a data repository accepts** (point 8): `"names": "pseudonyms"` in its `bgdb.config.json` (the template has it). The tools
+  default, `"as-is"`, keeps names as they are (fixtures, tests, archives).
+- **Erasure** (point 6) writes one file, `data/erased.tsv` (content hash, id, date, reason): it is both the list that refuses the match
+  again and the public log of CR-02, so there is no separate `erasures.md`. A player asks through a "Remove a match" issue form, linked from
+  each match page; the issue gives the match number only.
+- **"Submitted by"** (point 7): `by:<login>` in the search, and the "Added by" line of a match page links to it.
+- **Pull requests made by hand**: `bgdb hide-names --key-file` writes the files as the Contribute page would, with the same key file.
+
+How it works for a contributor: [contributing-flow.md](../contributing-flow.md#player-names). Code: `packages/core/src/pseudonym.js`
+(`hideNames`, also used by `bgdb hide-names`), `site/js/contribute-model.js`, `site/js/contribute.js` (the key step, the over-the-board box),
+`packages/core/src/contribution.js` (`V-HANDLE`, `V-ORIGIN`, `V-ERASED`), `packages/cli/src/erase.js`.
 
 ## Context
 
@@ -94,7 +108,7 @@ anyone being able to tie that opponent to their account on the platform.
   handle computes its pseudonym and finds all that person's matches. That defeats the purpose. A slow hash doesn't help either, because a targeted search
   only needs one computation.
 - **A secret key per contributor.** The pseudonym is `HMAC-SHA-256(key, platform + "\n" + normalised handle)`, turned into a readable name: two words from a
-  fixed list plus four hex characters, for example `anon-heron-7f3a`. Without the key, nobody can compute it.
+  fixed list plus four hex characters, for example `quick-skunk-a63a`. Without the key, nobody can compute it.
 - **The key belongs to the contributor.** The Contribute page creates a random key the first time (WebCrypto), keeps it in the browser, and lets the
   contributor save it to a file and load it on another computer. The CLI takes the same key (`--key-file`), so a contributor using git gets the same names.
   No secret is kept by the project, so there is no project key that could leak or be demanded.
@@ -138,7 +152,7 @@ A match declared `otb` keeps the players' names, the event, the venue and the tr
 means: *"The names and moves of an over-the-board match are published, like chess games. A player can ask for a match to be removed."* The right to object
 is what makes this defensible, so it depends on point 6 being built.
 
-Open question: whether a declared over-the-board match whose `Site` names an online platform is refused, or the declaration wins.
+Settled (2026-10-08): a declared over-the-board match whose `Site` or event names an online platform is refused (`V-ORIGIN`).
 
 ### 6. Erasing a match
 
@@ -150,8 +164,8 @@ Open question: whether a declared over-the-board match whose `Site` names an onl
    refused with "this match was removed at a player's request". The list holds hashes only, no names. It is carried to the next data repository like the
    hash files of decision 0018, and the erased line is removed from those hash files.
 4. The next build and Pages deployment drop it from the site, the catalogs and the player index.
-5. The erasure log (`data/erasures.md`, required by [CR-02](../spec/10-contribution.md#CR-02)) records the date, the id and the reason category
-   (*player request*, *contributor withdrawal*, *rights*, *legal*), without names.
+5. The erasure log required by [CR-02](../spec/10-contribution.md#CR-02) is the same `data/erased.tsv`: the date, the id and the reason
+   category (`player-request`, `contributor-withdrawal`, `rights`, `legal`), without names.
 
 A tombstone overlay (hide without deleting) is not enough for a person's request: the files would stay in the current tree. It is still useful for a match
 hidden for another reason (a disputed transcription), and keeps its place in the spec.
@@ -173,15 +187,15 @@ so a contributor finds their own matches whatever the names in them.
 ### 8. A safety net in CI
 
 The shared check (`analyzeGroup`, [decision 0015](0015-contribution-loop.md)) gets a new error, `V-HANDLE`, for an online or unknown-origin match where a
-side is neither a pseudonym (`anon-…`) nor declared as the contributor's own side. The message points to the Contribute page. By the time CI sees the
+side is not a pseudonym (and point 2 not being built, no side is declared as the contributor's own). The message points to the Contribute page. By the time CI sees the
 file it is already public (point 4), so this protects the stored data, not the pull request.
 
-## What would change if accepted
+## What it changes
 
 - [Decision 0010](0010-privacy-and-anonymisation.md): "ingestion keeps player names and handles" is replaced by "real names over the board, pseudonyms online".
 - Spec: [RP-03](../spec/11-rights-governance.md#RP-03) (online pseudonyms, OTB names, the erasure path), [CR-02](../spec/10-contribution.md#CR-02) and
-  [SH-03](../spec/05-storage.md#SH-03) (logged erasure, sealed shards included), [§10 contribution](../spec/10-contribution.md) (`origin`, which side is
-  the contributor, `V-HANDLE`), [V-RIGHTS](../spec/10-contribution.md).
+  [SH-03](../spec/05-storage.md#SH-03) (logged erasure, sealed shards included), [§10 contribution](../spec/10-contribution.md) (`origin`, `V-HANDLE`, `V-ORIGIN`,
+  `V-ERASED`), [V-RIGHTS](../spec/10-contribution.md).
 - Code: `packages/core` (platform detection, pseudonyms, rewriting of `.mat`/`.sgf`/`.xg`), the Contribute page (`site/contribute.html`, `site/guide.html`:
   the key, the questions), `bgdb erase` ([commands.md](../commands.md)), search by contributor ([site.md](../site.md)), the issue form and
   `CONTRIBUTING.md` of [templates/data-repo](../../templates/data-repo/).

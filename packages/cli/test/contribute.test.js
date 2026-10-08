@@ -194,7 +194,7 @@ test('names replaced before anything is sent (decision 0025): the ZIP holds pseu
   assert.deepEqual(items.map((i) => i.hidden.attachments.map((a) => a.kind)), [['xg'], ['sgf'], ['xg']]);
   assert.deepEqual(items.map((i) => i.hidden.notes), [[], [], []]);
   const og = items.find((i) => i.group.base === 'og');
-  assert.match(og.base, /^anon-[a-z]+-[a-z]+-[0-9a-f]{4}-vs-anon-[a-z]+-[a-z]+-[0-9a-f]{4}-2026-08-03$/, 'the files are named after the pseudonyms');
+  assert.match(og.base, /^[a-z]+-[a-z]+-[0-9a-f]{4}-vs-[a-z]+-[a-z]+-[0-9a-f]{4}-2026-08-03$/, 'the files are named after the pseudonyms');
   assert.deepEqual(og.hidden.players, og.res.match.sides.map((s) => nameOf(s.name)));
 
   const files = cm.packageFiles(items, () => ({ links: [], tags: ['final'] }));
@@ -228,8 +228,31 @@ test('a declared illegal play is written into the normalised file when the names
   const files = cm.packageFiles(items);
   assert.ok(!files.some((f) => f.name.endsWith('.bgdb.json')), 'nothing left to add: the declaration is in the .mat');
   const mat = files.find((f) => f.name.endsWith('.mat')).bytes;
-  assert.match(mat, /; \[IllegalPlay "Game 6, Move \d+ of anon-/);
+  assert.match(mat, /; \[IllegalPlay "Game 6, Move \d+ of [a-z]+-[a-z]+-[0-9a-f]{4}"/);
   assert.ok(!mat.includes('Lockwood'));
   const [g] = groupFiles([{ name: 'x.mat', bytes: new TextEncoder().encode(mat), dir: '' }]);
   assert.equal(analyzeGroup(g, { config, known: new Map() }).hash16, items[0].res.hash16);
+});
+
+test('played over the board (decision 0025): the real names are sent with "origin": "otb", which a database of pseudonyms accepts; not offered for an online file', async () => {
+  const core = await import(pathToFileURL(path.join(tmp, 'lib', 'core', 'index.js')).href);
+  const nameOf = core.namer(new Uint8Array(32).fill(3));
+  const items = cm.prepare([file(LINNET, 'linnet.txt'), file('opengammon/vireo_vs_tester_2026-09-30.mat', 'v.mat')], { config, known: new Map(), nameOf });
+  for (const it of items) it.hidden = await cm.hideNames(it, nameOf);
+  const [linnet, vireo] = items;
+  assert.equal(cm.platformOf(linnet), null, 'Backgammon Studio is a program, not a platform');
+  assert.equal(cm.platformOf(vireo), 'OpenGammon');
+  assert.match(linnet.realBase, /^tester-vs-Linnet14-/);
+  linnet.otb = true;
+  const files = cm.packageFiles([linnet]);
+  assert.deepEqual(files.map((f) => f.name).sort(), [`${linnet.realBase}.bgdb.json`, `${linnet.realBase}.txt`, 'CONTRIBUTION.md'].sort());
+  assert.deepEqual(JSON.parse(files.find((f) => f.name.endsWith('.bgdb.json')).bytes), { origin: 'otb' });
+  assert.match(decodeURIComponent(cm.issueFormLink({ repository: 'a/b' }, [linnet])), /tester vs Linnet14/);
+  const [g] = groupFiles(files.filter((f) => f.name !== 'CONTRIBUTION.md').map((f) => ({ name: f.name, bytes: typeof f.bytes === 'string' ? new TextEncoder().encode(f.bytes) : f.bytes, dir: '' })));
+  const r = analyzeGroup(g, { config: { ...config, names: 'pseudonyms' }, known: new Map() });
+  assert.equal(r.status, 'new');
+  assert.equal(r.origin, 'otb');
+  // unticked again: the pseudonyms
+  linnet.otb = false;
+  assert.ok(cm.packageFiles([linnet]).every((f) => !f.name.includes('Linnet14')));
 });
