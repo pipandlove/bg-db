@@ -76,13 +76,13 @@ test('new-data-repo, the first one: made from the template, committed with the i
   assert.deepEqual([cfg.firstShard, cfg.repository, cfg.closed, cfg.name], [1, 'owner/bgdb-data-1', false, 'BGDB']);
   for (const f of ['validate', 'review-publish', 'ingest', 'issue-to-pr', 'pages']) {
     const t = w.read('bgdb-data-1', `.github/workflows/${f}.yml`);
-    assert.match(t, /uses: owner\/bgdb\/\.github\/workflows\/data-[a-z-]+\.yml@v10\n {4}with:\n {6}tools-repository: owner\/bgdb\n {6}tools-ref: v10\n/, f);
+    assert.match(t, /uses: owner\/bgdb\/\.github\/workflows\/data-[a-z-]+\.yml@v11\n {4}with:\n {6}tools-repository: owner\/bgdb\n {6}tools-ref: v11\n/, f);
   }
   for (const f of ['README.md', 'CONTRIBUTING.md', 'DATA-LICENSE.md', 'inbox/README.md', '.github/ISSUE_TEMPLATE/submit-match.yml', '.github/PULL_REQUEST_TEMPLATE.md', 'package.json', '.gitignore']) {
     assert.ok(!w.read('bgdb-data-1', f).includes('%%'), `${f}: a placeholder is left`);
   }
   assert.match(w.read('bgdb-data-1', 'README.md'), /publishes them at <https:\/\/owner\.github\.io\/bgdb-data-1\/>[\s\S]*Shards start at `0001`/);
-  assert.equal(w.git('bgdb-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bgdb-data-1, from the template of owner/bgdb@v10');
+  assert.equal(w.git('bgdb-data-1', 'log', '--format=%an <%ae>|%s'), 'Maintainer <1+maintainer@users.noreply.github.com>|Data repository bgdb-data-1, from the template of owner/bgdb@v11');
   assert.equal(w.git('bgdb-data-1', 'status', '--porcelain'), '');
   assert.deepEqual(w.sources(), {
     schema: '1.0', name: 'BGDB', license: 'CC0-1.0',
@@ -98,7 +98,7 @@ test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no
   w.answers.tag = false;
   assert.equal(await newDataRepo(w.opts({ name: 'bgdb-data-1' })), 0, w.text());
   const calls = w.gh.map((c) => c.args.join(' '));
-  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bgdb --json name', 'api repos/owner/bgdb/git/ref/tags/v10'], 'checked before anything is made');
+  assert.deepEqual(calls.slice(0, 4), ['--version', 'auth status', 'repo view owner/bgdb --json name', 'api repos/owner/bgdb/git/ref/tags/v11'], 'checked before anything is made');
   assert.match(calls.find((c) => c.startsWith('repo create')), /^repo create owner\/bgdb-data-1 --private --source .*bgdb-data-1 --remote origin --push --description /);
   assert.ok(calls.includes('api -X PATCH repos/owner/bgdb-data-1 -F allow_squash_merge=true -F delete_branch_on_merge=true'));
   assert.ok(calls.includes('label create submission -R owner/bgdb-data-1 --force'));
@@ -110,7 +110,7 @@ test('new-data-repo on GitHub: create and push, squash merging, label, Pages, no
   assert.match(t, /warning: turn on Pages \(source: GitHub Actions\): refused \(HTTP 403: Upgrade to GitHub Pro\)\. By hand: Settings > Pages/);
   assert.match(t, /warning: owner\/bgdb is private: add the secret BGDB_TOOLS_TOKEN to owner\/bgdb-data-1/);
   assert.match(t, /warning: add the secret BGDB_BOT_TOKEN to owner\/bgdb-data-1/);
-  assert.match(t, /warning: there is no tag v10 on GitHub in owner\/bgdb: .* git tag v10 && git push origin v10/);
+  assert.match(t, /warning: there is no tag v11 on GitHub in owner\/bgdb: .* git tag v11 && git push origin v11/);
   assert.ok(!calls.some((c) => c.startsWith('workflow run')), 'Pages refused: nothing to publish');
 
   const p = world();
@@ -310,7 +310,7 @@ test('publish-data-repo: a repository made with --local goes on GitHub later; a 
   assert.ok(!calls.some((c) => c.startsWith('repo create') || c.includes('-X POST')), calls.join('\n'));
   assert.match(w.text(), /owner\/a exists on GitHub: push to it[\s\S]*Pages is on already/);
   assert.ok(!/warning/.test(w.text()));
-  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bgdb@v10');
+  assert.equal(spawnRun('git', ['-C', w.d('a.git'), 'log', '--format=%s']).stdout.trim(), 'Data repository a, from the template of owner/bgdb@v11');
 
   // gh repo create refused: the folder and sources.json are kept, and the message says how to finish
   const f = world();

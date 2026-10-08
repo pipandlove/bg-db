@@ -98,6 +98,16 @@ test('a shard that fails to load is skipped with a notice, the others still work
   assert.match(partial.errors[0], /Shard 0001 could not be loaded/);
 });
 
+test('the files that name the files of the moment are revalidated, the hashed files may come from the cache (spec CL-01, CL-02)', async () => {
+  const seen = new Map();
+  const f = async (url, init) => { seen.set(new URL(url).pathname.split('/').pop(), init?.cache ?? 'default'); return fetch(url, init); };
+  await cat.loadAll({ base, fetchImpl: f });
+  for (const name of ['sources.json', 'registry.json', 'shard.json']) if (seen.has(name)) assert.equal(seen.get(name), 'no-cache', name);
+  assert.equal(seen.get('shard.json'), 'no-cache');      // a stale shard.json hid the matches just added (2026-10-08)
+  const catalog = [...seen.keys()].find((n) => n.startsWith('catalog.'));
+  assert.equal(seen.get(catalog), 'default');
+});
+
 test('all URLs are resolved against the page: the site works under any sub-path', async () => {
   const f = async (url, init) => fetch(String(url).replace('/sub/path/', '/'), init);
   const sub = await cat.loadAll({ base: `${base}sub/path/`, fetchImpl: f });
@@ -245,7 +255,7 @@ test('the built site is served correctly over HTTP (what GitHub Pages would do)'
 
 test('how to contribute: every step and every picture exists, each picture has the size its marks were measured on, and every mark lies inside it', async () => {
   const { STEPS, SHOTS } = await import(pathToFileURL(path.join(dist, 'js', 'steps.js')).href);
-  assert.deepEqual(STEPS.map((s) => s.id), ['check', 'zip', 'form', 'send', 'wait'], 'the Contribute page puts its check and buttons into these steps');
+  assert.deepEqual(STEPS.map((s) => s.id), ['key', 'check', 'zip', 'form', 'send', 'wait'], 'the Contribute page puts its check and buttons into these steps');
   for (const st of STEPS) for (const n of st.shots) assert.ok(SHOTS[n], `${st.id}: picture ${n}`);
   for (const [name, s] of Object.entries(SHOTS)) {
     const png = fs.readFileSync(path.join(dist, s.src));

@@ -22,3 +22,4 @@ export { fileKind, groupFiles, analyzeGroup, parseSidecar, TAG_RE, META_KEYS } f
 export { cleanHeaderMetadata, siteEvent, nameMetadata, displayKey, planMetadata } from './metadata.js';
 export { rollTokens, compareRolls, diffText, sameMatchClusters, keeperOf, SAME_MATCH_RATIO, RANK_TEXT } from './reconcile.js';
 export { checkSources, mergeEnrichment, SOURCE_STATES } from './sources.js';
+export { pseudonym, namer, isPseudonym, pseudonymizeMatch, rewriteSgf, rewriteXg, newKey, keyFileText, parseKey, keyToHex, keyFromHex, keyFingerprint, hmacSha256, KEY_BYTES, WORDS } from './pseudonym.js';

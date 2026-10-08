@@ -7,11 +7,13 @@ body:
     attributes:
       value: |
         Check your matches on the **Contribute page** of the site first and download its ZIP. Then drop the ZIP into the box below, tick the rights box, and create the issue. A bot answers here within a minute or two, and again with the links to your matches once they are in the database.
+
+        **Please do not paste a match file here.** An issue is public as soon as it is created. The Contribute page replaces the player names, the platform and the time of day before anything leaves your computer; a pasted file still holds them.
   - type: textarea
     id: transcript
     attributes:
       label: Your matches
-      description: Drag the ZIP from the Contribute page into this box (a line with its name appears; that is normal). Or paste the text of one match (.mat / .txt, or GNU Backgammon SGF).
+      description: Drag the ZIP from the Contribute page into this box (a line with its name appears; that is normal).
     validations:
       required: true
   - type: input

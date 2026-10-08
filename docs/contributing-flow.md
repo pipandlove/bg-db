@@ -15,11 +15,35 @@ same match again with such a file corrects a match that is already in the databa
 
 | Way | For | What you do |
 |---|---|---|
-| **The Contribute page** (`contribute.html` on the site) | most people | Step 0 says first that a free GitHub account is needed, with a button to GitHub's sign-up page and why. Then five numbered steps, each lit up in turn, with pictures of GitHub and red marks on what to click (the same steps, to read first: **How to contribute**, `guide.html`). 1. Drop the files (or paste the text): the page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, with a picture of the last position; add a YouTube link and tags if you want. 2. Tick the rights box and download the ZIP (it carries the rights statement, `CONTRIBUTION.md`). 3. Open the "Submit a match" form of the current data repository (title filled in). 4. Drop the ZIP into its first box, tick the rights box, press Create. 5. The bot does the rest (the issue route below). No fork, no branch, no pull request to handle. |
-| **A GitHub issue** ("Submit a match" form of the current data repository) | everyone with a GitHub account: no fork, no branch, no pull request to handle | Drop the ZIP of the Contribute page into the first box (GitHub stores it and writes a line with its link: that is normal), or paste the text of one match; tick the rights box; create the issue. A bot downloads the ZIP, checks it as the pull request will, and answers on the issue within a minute or two: what is new, what is already there, what to fix (then edit the issue with the new ZIP). When it can be added, it opens the pull request itself; after the merge and the ingest, it answers again on the issue with the links to the matches on the site. The issue's author is credited as the contributor. |
-| **A pull request** | people used to git | Add the files to `inbox/` of the current data repository and open a pull request. `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bgdb`) tells you beforehand what the bot will say. |
+| **The Contribute page** (`contribute.html` on the site) | most people | Step 0 says first that a free GitHub account is needed, with a button to GitHub's sign-up page and why. Then six numbered steps, each lit up in turn, with pictures of GitHub and red marks on what to click (the same steps, to read first: **How to contribute**, `guide.html`). 1. The names key, the first time only (see *Player names* below): create it, load a copy, or go on without one; once a key is kept by the browser, this step is one line. 2. Drop the files (or paste the text): the page checks them in your browser with the same rules as the database and shows, for each match, whether it is new, already in the database, or needs a fix, the names it will have in the database, and a picture of the last position; add a YouTube link and tags if you want. 3. Tick the rights box and download the ZIP (the files with the names replaced, and the rights statement, `CONTRIBUTION.md`). 4. Open the "Submit a match" form of the current data repository (title filled in, with the made-up names). 5. Drop the ZIP into its first box, tick the rights box, press Create. 6. The bot does the rest (the issue route below). No fork, no branch, no pull request to handle. |
+| **A GitHub issue** ("Submit a match" form of the current data repository) | everyone with a GitHub account: no fork, no branch, no pull request to handle | Drop the ZIP of the Contribute page into the first box (GitHub stores it and writes a line with its link: that is normal); tick the rights box; create the issue. A bot downloads the ZIP, checks it as the pull request will, and answers on the issue within a minute or two: what is new, what is already there, what to fix (then edit the issue with the new ZIP). When it can be added, it opens the pull request itself; after the merge and the ingest, it answers again on the issue with the links to the matches on the site. The issue's author is credited as the contributor. |
+| **A pull request** | people used to git | Add the ZIP of the Contribute page to `inbox/` of the current data repository and open a pull request (your own files would publish the names they hold). `npm run check` there (or `npm run bgdb -- review --inbox ...` in `bgdb`) tells you beforehand what the bot will say. |
 
 Nothing has to be named in a special way, filled in, or organised: the database never asks for metadata that the file already contains. If something is wrong, the message says what, where and how to fix it.
+
+### Player names
+
+A file on GitHub is public as soon as it is submitted: the issue, its attachment and the commits of a pull request stay readable even
+after a change. So the Contribute page replaces the names **before** anything leaves the contributor's computer
+([decision 0025](decisions/0025-online-players-otb-names-and-erasure.md)):
+
+- **Every player** (the contributor included) gets a made-up name such as `anon-brave-otter-7f3a`: HMAC-SHA-256 of the handle with the
+  contributor's **names key**, turned into an adjective, an animal and four hex digits (`packages/core/src/pseudonym.js`). With one key,
+  the same handle always gets the same name, so a contributor can follow their games against an opponent; with another key, another name,
+  so nobody can link the matches of two contributors, or a name to an account on a platform.
+- **The key** is made by the page (32 random bytes, WebCrypto) and kept by the browser (`localStorage`, shared by the pages of the site).
+  The contributor downloads a copy (`bgdb-names-key.txt`) to use it on another computer. The project never sees it. Without a key, a key
+  for the visit only is used: the names are still replaced, but they change at the next visit. A lost key means new names from then on;
+  matches already sent keep theirs.
+- **Also removed:** the platform (the site and place of the file), the time of day, the event, the round, the ratings, the remarks and
+  the transcriber. The date and the moves stay.
+- **What is sent:** the normalised `.mat` written with the new names (never the original file), the `.sgf` rewritten (`PB`, `PW`, the date
+  only; event, place, comments and the like dropped; the analysis kept) and the `.xg` rewritten (the name fields of its header and of its
+  copy, the event, place, round, annotator, transcriber and game-name fields cleared, the time removed from the date, the archive compressed
+  again). Each rewritten file must read back to the same match and must no longer contain the old names, or it is left out with a note on
+  the card. A declared illegal play is written into the normalised file itself.
+- **Not covered yet** (decision 0025): matches played over the board under real names, `bgdb erase`, a "submitted by" search, the
+  `V-HANDLE` check in CI, and pull requests made by hand with one's own files.
 
 ## What happens to a pull request
 

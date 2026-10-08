@@ -180,3 +180,56 @@ test('an unzip program reads the ZIP (if one is installed)', async (t) => {
   assert.match(execFileSync('unzip', ['-t', f], { encoding: 'utf8' }), /No errors detected/);
   assert.equal(execFileSync('unzip', ['-p', f, 'a.txt'], { encoding: 'utf8' }), 'hello\n');
 });
+
+test('names replaced before anything is sent (decision 0025): the ZIP holds pseudonyms only, and the bot reads it to the same matches', async () => {
+  const core = await import(pathToFileURL(path.join(tmp, 'lib', 'core', 'index.js')).href);
+  const nameOf = core.namer(new Uint8Array(32).fill(3));
+  const items = cm.prepare([
+    file('opengammon/Sir_Plover_vs_tester_2026-08-03.mat', 'og.mat'), file('xg-binary/Sir_Plover_vs_tester_2026-08-03.xg', 'og.xg'),
+    file(`${CH}.txt`, 'c.txt'), file(`${CH}.sgf`, 'c.sgf'),
+    file('xg-binary/toucanBG_vs_tester_2026-08-04.xg', 'alone.xg'),
+  ], { config, known: new Map(), nameOf });
+  for (const it of items) it.hidden = await cm.hideNames(it, nameOf);
+  assert.deepEqual(items.map((i) => i.res.status), ['new', 'new', 'new']);
+  assert.deepEqual(items.map((i) => i.hidden.attachments.map((a) => a.kind)), [['xg'], ['sgf'], ['xg']]);
+  assert.deepEqual(items.map((i) => i.hidden.notes), [[], [], []]);
+  const og = items.find((i) => i.group.base === 'og');
+  assert.match(og.base, /^anon-[a-z]+-[a-z]+-[0-9a-f]{4}-vs-anon-[a-z]+-[a-z]+-[0-9a-f]{4}-2026-08-03$/, 'the files are named after the pseudonyms');
+  assert.deepEqual(og.hidden.players, og.res.match.sides.map((s) => nameOf(s.name)));
+
+  const files = cm.packageFiles(items, () => ({ links: [], tags: ['final'] }));
+  const all = Buffer.concat(files.map((f) => Buffer.from(typeof f.bytes === 'string' ? new TextEncoder().encode(f.bytes) : f.bytes)));
+  for (const gone of ['Sir_Plover', 'tester', 'chouehandle', 'toucanBG', 'OpenGammon', 'choue.net', 'Foxamon']) {
+    assert.ok(!all.includes(Buffer.from(gone)) && !all.includes(Buffer.from(gone, 'utf16le')), `${gone} is not sent`);
+    assert.ok(!files.some((f) => f.name.includes(gone)), `${gone} is not in a file name`);
+  }
+  // what the bot does with the ZIP: the same check, the same identities, the pseudonyms, the attachments verified
+  const regrouped = groupFiles(files.filter((f) => f.name !== 'CONTRIBUTION.md').map((f) => ({ name: f.name, bytes: typeof f.bytes === 'string' ? new TextEncoder().encode(f.bytes) : f.bytes, dir: '' })));
+  const re = regrouped.map((g) => analyzeGroup(g, { config, known: new Map() }));
+  assert.deepEqual(re.map((r) => r.status), ['new', 'new', 'new']);
+  assert.deepEqual(re.map((r) => r.hash16).sort(), items.map((i) => i.res.hash16).sort());
+  for (const r of re) {
+    assert.ok(r.match.sides.every((s) => core.isPseudonym(s.name)), r.base);
+    assert.equal(r.match.provenance.site, 'bgdb', 'the stored file names no platform');
+    assert.equal(r.match.time, null);
+    assert.ok(r.attachments.every((a) => a.verified), r.base);
+  }
+  // the issue title names the pseudonyms
+  assert.ok(!decodeURIComponent(cm.issueFormLink({ repository: 'a/b' }, items)).includes('Sir_Plover'));
+});
+
+test('a declared illegal play is written into the normalised file when the names are replaced', async () => {
+  const core = await import(pathToFileURL(path.join(tmp, 'lib', 'core', 'index.js')).href);
+  const nameOf = core.namer(new Uint8Array(32).fill(3));
+  const text = fs.readFileSync(path.join(FIXTURES, 'extmatchdb/illegal-play-declared-in-remarks_7pt.txt'), 'utf8').split('\n').filter((l) => !/^;\s*[|+]/.test(l)).join('\n');
+  const side = new TextEncoder().encode(JSON.stringify({ illegal: [{ game: 6, row: 19, player: 'Simon Lockwood' }] }));
+  const items = cm.prepare([{ name: 's.txt', bytes: new TextEncoder().encode(text) }, { name: 's.bgdb.json', bytes: side }], { config, known: new Map(), nameOf });
+  items[0].hidden = await cm.hideNames(items[0], nameOf);
+  const files = cm.packageFiles(items);
+  assert.ok(!files.some((f) => f.name.endsWith('.bgdb.json')), 'nothing left to add: the declaration is in the .mat');
+  const mat = files.find((f) => f.name.endsWith('.mat')).bytes;
+  assert.match(mat, /; \[IllegalPlay "Game 6, Move \d+ of anon-/);
+  assert.ok(!mat.includes('Lockwood'));
+  const [g] = groupFiles([{ name: 'x.mat', bytes: new TextEncoder().encode(mat), dir: '' }]);
+  assert.equal(analyzeGroup(g, { config, known: new Map() }).hash16, items[0].res.hash16);
+});

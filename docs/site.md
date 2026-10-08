@@ -15,7 +15,7 @@ Published, the site of `bgdb` reads the data repositories listed in `sources.jso
 
 ## What it does
 
-Three pages: the search and replay page (`index.html`), the **Contribute** page (`contribute.html`, described in [contributing-flow.md](contributing-flow.md)), and **How to contribute** (`guide.html`): the same five steps with every picture, to read before starting.
+Three pages: the search and replay page (`index.html`), the **Contribute** page (`contribute.html`, described in [contributing-flow.md](contributing-flow.md)), and **How to contribute** (`guide.html`): the same six steps with every picture, to read before starting.
 
 
 - **List** of all matches, newest first (undated last), 50 per page; on the same day by event, then by **round** in natural order (Round 2 before Round 10). Each row: date, both players with the score (the winner in bold), length, games, **event, round** and small tags (on phones the event and round go under the names).
@@ -50,13 +50,13 @@ Not yet: `result:`, `score:`, `pos:` (position search), `opening:`, `collection:
 | `site/js/query.js` | parse, format and apply a query (pure functions, tested in Node) |
 | `site/js/catalog.js` | load the sources, their registries, shards and compressed catalogs and overlays; decode them into rows |
 | `site/js/replay.js`, `replay-model.js`, `board.js`, `svg.js` | the replay: see [replay.md](replay.md) |
-| `site/contribute.html`, `js/contribute.js`, `contribute-model.js`, `zip.js` | the Contribute page: five numbered steps; check files in the browser with the core code, download them as a ZIP, open the "Submit a match" form of the current data repository |
+| `site/contribute.html`, `js/contribute.js`, `contribute-model.js`, `zip.js` | the Contribute page: six numbered steps; the names key (decision 0025, kept by the browser), check files in the browser with the core code, replace the player names, download them as a ZIP, open the "Submit a match" form of the current data repository |
 | `site/guide.html`, `js/guide.js`, `js/steps.js`, `img/guide/*.png` | How to contribute: the steps (one list in `steps.js`, shown by both pages) and the pictures of GitHub, with numbered red marks drawn on top. **To replace a picture:** a plain screenshot of the `sambot1981`-like contributor account (light theme, window about 1280 px, player names blurred), cropped to the useful column; then give its `w`/`h` in `SHOTS` and measure its marks again (`box` = x, y, width, height in the picture's pixels): a test checks the size and that every mark lies inside |
 | `site/js/dom.js` | DOM helpers shared by the pages |
 | `site/js/format.js` | display helpers; the check that a video link has the exact canonical shape before it is shown |
 | `dist/lib/core/*.js` | a copy of `packages/core/src` made by `build`: the browser uses the same code as the tools (here: `normalizeName`; the replay and the browser-side validator will use more) |
 
-How the page loads the data (spec section 8): `sources.json` (always fetched fresh) lists the data repositories to read ([format](formats/shard-and-index.md#sourcesjson-the-data-repositories-a-site-reads)); without it, the `registry.json` next to the page is the only one. Each repository's `registry.json` (always fetched fresh) lists its shards; for each shard `shard.json` names the catalog file, whose name contains its hash
+How the page loads the data (spec section 8): `sources.json` (always fetched fresh) lists the data repositories to read ([format](formats/shard-and-index.md#sourcesjson-the-data-repositories-a-site-reads)); without it, the `registry.json` next to the page is the only one. Each repository's `registry.json` (always fetched fresh) lists its shards; for each shard `shard.json` (always fetched fresh too: it names the catalog of the moment) names the catalog file, whose name contains its hash
 (`catalog.<h8>.json.gz`); the catalog is decompressed in the browser (`DecompressionStream`; plain JSON is accepted too if a server already decoded it) and decoded into rows with the
 search strings normalised once. Only catalogs (and the small overlay of enrichments, if any) are loaded for the list; the match file and its metadata are fetched when a match page is opened, and the replay data is derived from them in the browser.
 The **overlay** holds video links, tags and attachments added to matches after they were stored ([growing.md](growing.md)): it changes the flags of the rows (so `has:video` and `has:analysis` include them) and is merged into the match page.

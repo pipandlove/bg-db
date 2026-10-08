@@ -87,7 +87,7 @@ All paths lead to the same result: files in `inbox/` merged through a pull reque
 
 3.  **Relay** (if enabled): one click, no GitHub account.
 
-*Implemented differently (tools v8, [decision 0015](../decisions/0015-contribution-loop.md)): the page produces the ZIP and opens the issue form, where the contributor drops it (GitHub's own file upload of issues); a bot turns it into a pull request. The upload page (2) needed a fork, which first-time contributors could not manage. The page is five numbered steps with pictures of GitHub, also shown on their own ("How to contribute").*
+*Implemented differently (tools v8, [decision 0015](../decisions/0015-contribution-loop.md)): the page produces the ZIP and opens the issue form, where the contributor drops it (GitHub's own file upload of issues); a bot turns it into a pull request. The upload page (2) needed a fork, which first-time contributors could not manage. The page is six numbered steps with pictures of GitHub, also shown on their own ("How to contribute"); the first one, asked only the first time, is the contributor's names key ([decision 0025](../decisions/0025-online-players-otb-names-and-erasure.md)).*
 
 The hand-over MUST work without the website holding any secret; secrets are only used by optional relay components.
 

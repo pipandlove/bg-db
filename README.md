@@ -3,7 +3,7 @@
 An open, federated, static backgammon game database: download, search and replay matches in the browser,
 grow the collection by pull request.
 
-> **Status: M0-M5 and M4c done (core library, `check`, `ingest`, `build`, `review`, search site, replay, Contribute page, contribution workflows); the data lives in data repositories (decision 0024).** The workflows have not run on GitHub yet: see [docs/contributing-flow.md](docs/contributing-flow.md). Analysis display and the other proposed steps come next
+> **Status: M0-M5 and M4c done (core library, `check`, `ingest`, `build`, `review`, search site, replay, Contribute page, contribution workflows); the data lives in data repositories (decision 0024).** `bgdb-data-1` is live and takes contributions through the Contribute page, which replaces player names by pseudonyms made with the contributor's own key before anything is sent (decision 0025): see [docs/contributing-flow.md](docs/contributing-flow.md). Analysis display and the other proposed steps come next
 > (see [docs/roadmap.md](docs/roadmap.md)). Data licence: **CC0**; code: MIT. The items of
 > [docs/decisions/0006-open-items.md](docs/decisions/0006-open-items.md) about going public are settled.
 
@@ -13,7 +13,7 @@ Requires Node.js >= 22 (the repository pins `v24.21.0` in `.node-version`). Ther
 
 ```sh
 npm install          # only creates the workspace links
-npm test             # 405 tests (5 marked todo: games from a set position, planned)
+npm test             # 428 tests (5 marked todo: games from a set position, planned)
 npm run check        # validates every match in fixtures/ (every real match must be valid)
 node packages/cli/bin/bgdb.js check path/to/match.mat
 ```

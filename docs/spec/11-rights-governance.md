@@ -6,7 +6,7 @@
 
 <a id="RP-02"></a>**[RP-02]** Contributors affirm they have the right to share what they submit. Content scraped from other databases without permission MUST NOT be accepted.
 
-<a id="RP-03"></a>**[RP-03]** Player identity is optional and may be a pseudonym. Because git history is public and durable, the contribution page warns about real names, and a documented takedown path exists.
+<a id="RP-03"></a>**[RP-03]** Player names are replaced before a submission leaves the contributor's computer: the contribution page gives every player a pseudonym computed with the contributor's own secret key (the same handle, the same pseudonym, for that contributor only) and removes the platform, the time of day, the event and the remarks ([decision 0025](../decisions/0025-online-players-otb-names-and-erasure.md)). Because git history is public and durable, nothing with the original names is uploaded, and a documented takedown path exists.
 
 <a id="RP-06"></a>**[RP-06]** Attachments (SGF, XG) and video links are covered by the same declaration as the match. A contributor MUST NOT attach files, or link videos, that they have no right to share; the project hosts no video, only links.
 

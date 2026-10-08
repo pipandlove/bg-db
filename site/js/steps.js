@@ -17,7 +17,7 @@ export const SHOTS = {
     alt: 'The "Submit a match" form on GitHub, empty: a title field that says "Matches", a short explanation, the box "Your matches", a field for the event, the rights box, the box for a partial match, and the green Create button.',
     marks: [
       { box: [54, 95, 960, 32], text: 'The title is filled in for you.' },
-      { box: [54, 270, 960, 177], text: 'Your ZIP goes into this box (step 4).' },
+      { box: [54, 270, 960, 177], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
     ],
   },
   dropped: {
@@ -56,7 +56,19 @@ export const SHOTS = {
 /** a paragraph: strings, and links as {href, text} */
 const P = (...parts) => ({ p: parts });
 
+/** the number of a step, so that no text has to be renumbered when a step is added */
+export const stepNo = (id) => STEPS.findIndex((st) => st.id === id) + 1;
+
 export const STEPS = [
+  {
+    id: 'key', title: 'Your names key (the first time only)',
+    text: [
+      P('Player names are not published as they are in your files. Before anything leaves your computer, this page replaces every player, you included, with a made-up name such as "anon-brave-otter-7f3a". It also removes the platform, the time of day, the event and the remarks. The reason: online players have not agreed to have their names published, and with the platform and the time anyone could find the game, and the player, on the platform. The date and the moves stay.'),
+      P('The made-up names come from a secret key that belongs to you. With your key, the same opponent always gets the same name, in all your matches, so you can follow your games against them. Without your key, nobody can tell who is behind a name: not the other contributors, not the database.'),
+      P('Create your key once: it is kept in this browser. Download a copy (a small text file) to use it on another computer, or after clearing your browser. You can also go on without a key: the names are still replaced, but the same opponent gets a new name each time you submit.'),
+    ],
+    shots: [],
+  },
   {
     id: 'check', title: 'Check your matches',
     text: [P('Drop the files of your matches (.txt, .mat, .sgf or .xg), or paste the text of a match. They are checked here, in your browser, with the same rules as the database: you see at once which ones are new, which ones are already in the database, and which ones need a fix. Nothing is sent anywhere.')],
@@ -71,7 +83,7 @@ export const STEPS = [
     id: 'form', title: 'Open the submission form',
     text: [
       P('Press "Open the submission form": GitHub opens the form of the database in a new tab.'),
-      P('If GitHub asks you to sign in, sign in with your GitHub account, then press the button again. No account yet? ', { href: 'https://github.com/signup', text: 'Create one on github.com/signup' }, ' (step 0 above).'),
+      P('If GitHub asks you to sign in, sign in with your GitHub account, then press the button again. No account yet? ', { href: 'https://github.com/signup', text: 'Create one on github.com/signup' }, ' (step 0, at the top).'),
     ],
     shots: ['form'],
   },
@@ -99,7 +111,7 @@ export function accountNotice() {
   return h('section', { class: 'step step-account', id: 'step-account', 'aria-labelledby': 'step-account-title' },
     h('h3', { id: 'step-account-title' }, h('span', { class: 'step-n', 'aria-hidden': 'true', text: '0' }), h('span', { class: 'visually-hidden', text: 'Step 0: ' }), 'Before you can submit a match: a GitHub account'),
     h('p', { class: 'actions' }, h('a', { class: 'button primary big', href: 'https://github.com/signup', target: '_blank', rel: 'noopener noreferrer', text: 'Create a GitHub account' })),
-    h('p', { class: 'muted', text: 'The database lives on GitHub, and your matches are sent there (steps 3 and 4), in your name. An account is free and takes two minutes; then come back to this page. Already have one? Skip this step: GitHub asks you to sign in at step 3 if needed.' }));
+    h('p', { class: 'muted', text: `The database lives on GitHub, and your matches are sent there (steps ${stepNo('form')} and ${stepNo('send')}), in your name. An account is free and takes two minutes; then come back to this page. Already have one? Skip this step: GitHub asks you to sign in at step ${stepNo('form')} if needed.` }));
 }
 
 const RED = '#cf222e';

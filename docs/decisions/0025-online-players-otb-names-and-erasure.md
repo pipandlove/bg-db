@@ -2,12 +2,36 @@
 
 # 0025 - Online players under pseudonyms, real names over the board, erasing a match
 
-**Status:** proposed, **undecided**. The owner is reviewing this design (2026-10-08) and plans to ask on each platform's forum
-what it allows (questions at the end). Nothing here is built. Until it is accepted, [decision 0010](0010-privacy-and-anonymisation.md)
-still describes the code: ingestion keeps names and handles as they are.
+**Status:** accepted in part (2026-10-08): points 3 and 4, for every match sent from the Contribute page, with the choices listed in
+*Decided* below. Built: the names key, the pseudonyms, the rewriting of `.mat`, `.sgf` and `.xg` files in the browser. Still proposed: the
+over-the-board declaration with real names (5), `bgdb erase` (6), the "submitted by" search (7) and `V-HANDLE` (8). The owner still plans
+to ask each platform's forum what it allows (questions at the end).
 
 What the platform shows and promises about players depends on this decision, so it is written out in full to be re-read before
 choosing. It is not legal advice.
+
+## Decided (2026-10-08)
+
+The owner chose the secret key per contributor as the best compromise, and asked for it to be as smooth as possible: one step of the
+Contribute page, shown in full only while the browser has no key, which says what the key is for and that a match can be sent without one.
+
+- **Every match sent from the Contribute page gets pseudonyms**, whatever its origin: no "online or over the board?" question yet. The
+  over-the-board box with real names (5) comes later, together with erasure (6), which it depends on.
+- **Both sides get a pseudonym**, the contributor's own handle included (point 2 is not built): no "which player are you?" question. A
+  contributor finds their matches through their key (the same names every time) and, later, the "submitted by" search (7).
+- **The time of day is removed, the date is kept** (the open question of point 4). The platform name goes, as planned in point 1; so do the
+  event, the round, the ratings, the remarks and the transcriber.
+- **Without a key**, a key made for the visit only is used: names are still replaced, but the same opponent gets a new name next time.
+- **The `.xg` file is rewritten, not left out**: its name fields are written with the pseudonyms and the other text fields cleared (point 4).
+  XG leaves the end of an older, longer name behind a shorter one in the same field (a fixture held a third player's handle that way), so
+  whole fields are cleared. A rewritten file must read back to the same match and no longer contain the old names, or it is not sent.
+- **The pseudonym format:** `anon-<adjective>-<animal>-<4 hex>` (64 adjectives, 64 animals, 16 bits: 28 bits in all), from
+  HMAC-SHA-256(key, `"bgdb-name-1\n"` + the handle normalised as for search). The key file is a text file with one line `bgdb-key-1:<64 hex>`.
+- **The pull request route** stays open for maintainers and tests, but the guides now tell contributors to send the ZIP of the page only;
+  the issue form no longer offers to paste a match.
+
+How it works for a contributor: [contributing-flow.md](../contributing-flow.md#player-names). Code: `packages/core/src/pseudonym.js`,
+`site/js/contribute-model.js` (`hideNames`), `site/js/contribute.js` (the key step).
 
 ## Context
 

@@ -2,15 +2,16 @@
  * The logic of the "Contribute" page, without the DOM: check files with the same code as the tools (analyzeGroup), name them, build the
  * files to hand over, and the links to GitHub. Tested in Node.
  */
-import { groupFiles, analyzeGroup, normalizeVideoLink, toBgdbJson } from '../lib/core/index.js';
+import { groupFiles, analyzeGroup, normalizeVideoLink, toBgdbJson, readMatch, readMatchBytes, contentHash, writeMat, pseudonymizeMatch, rewriteSgf, rewriteXg } from '../lib/core/index.js';
 import { slug } from './dom.js';
 
 /**
  * @param {{name:string, bytes:Uint8Array}[]} files
- * @param {{config:object, known?:{get(full:string):string|undefined}}} ctx  known = what is in the database (the catalog)
+ * @param {{config:object, known?:{get(full:string):string|undefined}, nameOf?:(name:string)=>string}} ctx  known = what is in the database (the
+ *   catalog); nameOf = the pseudonyms of the contributor's key (decision 0025): the files are then named after them
  * @returns {{group:object, res:object, base:string|null}[]} one item per contribution, in order; `base` = the name the files get (new matches only)
  */
-export function prepare(files, { config, known }) {
+export function prepare(files, { config, known, nameOf }) {
   const seen = new Map();
   const both = { get: (full) => known?.get(full) ?? seen.get(full) };
   const taken = new Set();
@@ -20,13 +21,45 @@ export function prepare(files, { config, known }) {
     if (res.status === 'new' || res.status === 'partial') {             // a partial match gets a name too: it is sent if the contributor accepts it
       seen.set(res.full, '(earlier in this submission)');
       const s = res.summary;
-      const stem = `${slug(s.players[0])}-vs-${slug(s.players[1])}-${s.date ?? 'undated'}`;
+      const players = nameOf ? s.players.map(nameOf) : s.players;
+      const stem = `${slug(players[0])}-vs-${slug(players[1])}-${s.date ?? 'undated'}`;
       base = stem;
       for (let n = 2; taken.has(base); n++) base = `${stem}-${n}`;
       taken.add(base);
     }
     return { group, res, base };
   });
+}
+
+/**
+ * The match as it will be sent, with pseudonyms (decision 0025): the normalised .mat written from the match with the names replaced and the
+ * platform, time, event, round, ratings and remarks left out, read again to check that it is the same match; the SGF and XG files rewritten
+ * the same way. The original files are never sent. An attachment that cannot be rewritten cleanly is left out, with a note.
+ * @returns {Promise<{match:object, normalised:string, players:string[], attachments:{kind:string, ext:string, bytes:Uint8Array|string}[], notes:string[]}>}
+ */
+export async function hideNames(item, nameOf) {
+  const { res } = item;
+  const salvage = res.status === 'partial';
+  const normalised = writeMat(pseudonymizeMatch(res.match, nameOf));
+  const back = readMatch(normalised, { salvage });
+  if (!back.ok || contentHash(back.match) !== res.full) throw new Error('the match with the new names does not read back to the same match (please report this file)');
+  const attachments = [];
+  const notes = [];
+  // the attachments the check kept (the same match, verified); a partial match has none
+  const kept = res.attachments ?? [];
+  for (const a of kept) {
+    const label = `The ${a.kind.toUpperCase()} file ${a.name}`;
+    if (!a.verified) { notes.push(`${label} was left out: it could not be read, so its names cannot be replaced.`); continue; }
+    try {
+      const bytes = a.kind === 'sgf' ? new TextEncoder().encode(rewriteSgf(new TextDecoder().decode(a.bytes), nameOf)) : await rewriteXg(a.bytes, nameOf);
+      const r = readMatchBytes(bytes);
+      if (!r.ok || contentHash(r.match) !== res.full) throw new Error('it no longer reads back to the same match');
+      attachments.push({ kind: a.kind, ext: `.${a.kind}`, bytes });
+    } catch (e) {
+      notes.push(`${label} was left out: its names could not be replaced (${e.message}).`);
+    }
+  }
+  return { match: back.match, normalised, players: back.match.sides.map((x) => x.name), attachments, notes };
 }
 
 /**
@@ -47,12 +80,13 @@ export function parseExtras({ video = '', tags = '' }, config) {
   return { links, tags: out, problems };
 }
 
-/** a match that will be sent: new, or partial and accepted by the contributor (item.acceptPartial) */
-export const sendable = (item) => item.res.status === 'new' || (item.res.status === 'partial' && item.acceptPartial === true);
+/** a match that will be sent: new, or partial and accepted by the contributor (item.acceptPartial), and its names could be replaced */
+export const sendable = (item) => !item.hideError && (item.res.status === 'new' || (item.res.status === 'partial' && item.acceptPartial === true));
 
 /**
- * The files to hand over for the matches that will be sent: the originals under a good name, plus a .bgdb.json when there is something to
- * add (links, tags, declared illegal plays, the acceptance of a partial match).
+ * The files to hand over for the matches that will be sent: the files with their names replaced (item.hidden, decision 0025), else the
+ * originals, under a good name; plus a .bgdb.json when there is something to add (links, tags, declared illegal plays, the acceptance of a
+ * partial match).
  */
 /** the rights statement the ZIP carries once the box is ticked on the page: the review accepts it like the box of a pull request description */
 export const rightsLine = (license) => `- [x] I have the right to share these matches under ${license === 'CC0-1.0' || !license ? 'the CC0 public-domain dedication' : `the licence of the database (${license})`} (ticked on the Contribute page).`;
@@ -64,23 +98,32 @@ export function packageFiles(items, extrasOf, license = 'CC0-1.0') {
     const { group, res, base } = item;
     if (!sendable(item)) continue;
     const accept = res.status === 'partial';
-    for (const [kind, list] of Object.entries(group.files)) {
-      for (const e of list) {
-        if (kind === 'side') continue;
-        const ext = e.name.slice(e.name.lastIndexOf('.'));
-        files.push({ name: `${base}${ext.toLowerCase()}`, bytes: e.bytes });
+    const hidden = item.hidden;
+    if (hidden) {
+      // names replaced (decision 0025): the normalised match and the rewritten attachments, never the original files
+      files.push({ name: `${base}.mat`, bytes: hidden.normalised });
+      for (const a of hidden.attachments) files.push({ name: `${base}${a.ext}`, bytes: a.bytes });
+    } else {
+      for (const [kind, list] of Object.entries(group.files)) {
+        for (const e of list) {
+          if (kind === 'side') continue;
+          const ext = e.name.slice(e.name.lastIndexOf('.'));
+          files.push({ name: `${base}${ext.toLowerCase()}`, bytes: e.bytes });
+        }
       }
     }
     const x = extrasOf?.(base) ?? { links: [], tags: [] };
     const sc = res.sidecar ?? { links: [], tags: [], illegal: [] };
+    // the normalised file declares its illegal plays itself, with its own row numbers and names
+    const illegal = hidden ? [] : sc.illegal;
     const links = [...sc.links, ...x.links].filter((l, i, a) => a.findIndex((m) => m.url === l.url && m.game === l.game) === i);
     const tags = [...new Set([...sc.tags, ...x.tags])];
-    if (links.length || tags.length || sc.illegal.length || accept || group.files.side?.length) {
+    if (links.length || tags.length || illegal.length || accept || (!hidden && group.files.side?.length)) {
       const json = {};
       if (accept) json.accept = 'partial';
       if (links.length) json.links = links.map(({ url, title, game, time }) => ({ url, ...(title ? { title } : {}), ...(game ? { game } : {}), ...(time ? { time } : {}) }));
       if (tags.length) json.tags = tags;
-      if (sc.illegal.length) json.illegal = sc.illegal.map((d) => ({ game: d.game, row: d.row, ...(d.player ? { player: d.player } : {}) }));
+      if (illegal.length) json.illegal = illegal.map((d) => ({ game: d.game, row: d.row, ...(d.player ? { player: d.player } : {}) }));
       files.push({ name: `${base}.bgdb.json`, bytes: `${JSON.stringify(json, null, 2)}\n` });
     }
   }
@@ -102,7 +145,8 @@ export function issueFormLink(registry, items) {
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return null;
   const fresh = items.filter(sendable);
   const first = fresh[0]?.res.summary;
-  const title = !first ? 'Matches' : `Matches: ${first.players.join(' vs ')}${first.date ? ` ${first.date}` : ''}${fresh.length > 1 ? ` and ${fresh.length - 1} more` : ''}`;
+  const players = fresh[0]?.hidden?.players ?? first?.players;
+  const title = !first ? 'Matches' : `Matches: ${players.join(' vs ')}${first.date ? ` ${first.date}` : ''}${fresh.length > 1 ? ` and ${fresh.length - 1} more` : ''}`;
   return `https://github.com/${repo}/issues/new?template=submit-match.yml&title=${encodeURIComponent(title.slice(0, 120))}`;
 }
 

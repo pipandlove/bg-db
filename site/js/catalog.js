@@ -149,7 +149,9 @@ export async function loadAll({ base, fetchImpl = fetch }) {
   listed.sort((a, b) => (a.id < b.id ? -1 : 1));
   const loaded = await Promise.all(listed.map(async (s) => {
     try {
-      const info = await fetchJson(new URL('shard.json', s.base).href, fetchImpl);
+      // shard.json names the catalog of the moment, so it is revalidated like the registry (spec CL-02): GitHub Pages lets a browser keep
+      // it ten minutes, and a stale copy hid the matches just added (2026-10-08). The catalog's name holds its hash, so it can be kept.
+      const info = await fetchJson(new URL('shard.json', s.base).href, fetchImpl, { cache: 'no-cache' });
       const cat = await fetchGzJson(new URL(info.indexes.catalog, s.base).href, fetchImpl);
       return { id: s.id, base: s.base, source: s.source, info, rows: decodeCatalog(cat, s.id) };
     } catch (e) {

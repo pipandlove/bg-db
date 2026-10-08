@@ -267,7 +267,7 @@ Every numbered requirement of the specification, with the file that defines it. 
 |---|---|
 | [RP-01](11-rights-governance.md#RP-01) | Data is published under the CC0 1.0 public-domain dedication (SPDX CC0-1.0, [decision 0009](../decisions/0009-data-licence.md)). The licence... |
 | [RP-02](11-rights-governance.md#RP-02) | Contributors affirm they have the right to share what they submit. Content scraped from other databases without permission MUST NOT be accep... |
-| [RP-03](11-rights-governance.md#RP-03) | Player identity is optional and may be a pseudonym. Because git history is public and durable, the contribution page warns about real names,... |
+| [RP-03](11-rights-governance.md#RP-03) | Player names are replaced before a submission leaves the contributor's computer: the contribution page gives every player a pseudonym comput... |
 | [RP-06](11-rights-governance.md#RP-06) | Attachments (SGF, XG) and video links are covered by the same declaration as the match. A contributor MUST NOT attach files, or link videos,... |
 | [RP-04](11-rights-governance.md#RP-04) | Analysis files record the engine and licence conditions; analysis produced by software whose terms forbid redistribution MUST NOT be accepte... |
 | [RP-05](11-rights-governance.md#RP-05) | Governance is lightweight: maintainers decide policy through public issues; significant changes follow the proposal process of [§12](12-evol... |
