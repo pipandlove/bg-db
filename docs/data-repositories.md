@@ -25,7 +25,7 @@ Exactly one data repository is **current**: contributions go to it. Three comman
 Every command accepts `--dry-run` (print the steps, do nothing). `new-data-repo` and `switch-data-repo` accept `--local` (everything but GitHub).
 
 **Where things stand (2026-10-08):** `bgdb` is on GitHub (`pipandlove/bgdb`, its site at `https://pipandlove.github.io/bgdb/`), and `bgdb-data-1` is the current
-data repository, on tools `v13`. Sections 1 and 2 are done; the next steps are [7](#7-a-new-version-of-the-tools) for each release, and [8](#8-the-next-data-repository-and-the-switch) near 1 GB.
+data repository, on tools `v14`. Sections 1 and 2 are done; the next steps are [7](#7-a-new-version-of-the-tools) for each release, and [8](#8-the-next-data-repository-and-the-switch) near 1 GB.
 
 ## 1. Before you start (once)
 
@@ -262,6 +262,7 @@ The tags so far:
 | `v11` | 2026-10-08 | the Contribute page replaces player names by pseudonyms made with the contributor's own names key, and removes the platform, the time of day, the event and the remarks, before the ZIP is made (decision 0025); the site revalidates each `shard.json` (a new match no longer stays out of the search for ten minutes). A data repository moving to `v11` also takes the new issue form (`.github/ISSUE_TEMPLATE/submit-match.yml`: no more pasting a match) and the new CONTRIBUTING.md of the template |
 | `v12` | 2026-10-08 | decision 0025 in full: a box on the Contribute page for a match played over the board (real names, `"origin": "otb"`); pseudonyms without the `anon-` prefix; the review and the ingest refuse names that are not pseudonyms (`V-HANDLE`) when `bgdb.config.json` says `"names": "pseudonyms"`, and an over-the-board match whose file names an online platform (`V-ORIGIN`); `bgdb erase` and `data/erased.tsv` (`V-ERASED`); the `by:` search (catalog version 3); `bgdb hide-names`. A data repository moving to `v12` also adds `"names": "pseudonyms"` to its `bgdb.config.json`, and takes the new issue form `.github/ISSUE_TEMPLATE/remove-match.yml` and the new CONTRIBUTING.md of the template |
 | `v13` | 2026-10-08 | the issue route takes only the ZIP of the Contribute page: a match pasted as text is refused, even a valid one, because its names were not replaced and its pull request would have put them in a commit of the data repository (decision 0025). The "Submit a match" form of the template asks only for the ZIP and the rights; a data repository moving to `v13` takes that form too |
+| `v14` | 2026-10-08 | `.xg` files: a bear-off with a bigger die than needed (stored as from minus the die, down to -6) is read instead of refused; Jacoby fixtures |
 
 ## 8. The next data repository, and the switch
 

@@ -21,6 +21,9 @@ const TWINS = {
   'toucanBG_vs_tester_2026-08-04': 'opengammon/toucanBG_vs_tester_2026-08-04.mat',
   '2026-01-20T15-36-47-bluetailedgrebe1-tester': 'gnubg-sgf/2026-01-20T15-36-47-bluetailedgrebe1-tester.sgf',
   '2026-01-22T18-31-58-avocet-tester': 'gnubg-sgf/2026-01-22T18-31-58-avocet-tester.sgf',
+  'KR-TL_2026-10-08_jacoby-on': 'xg-text/KR-TL_2026-10-08_jacoby-on.txt',
+  'KR-TL_2026-10-08_jacoby-off': 'xg-text/KR-TL_2026-10-08_jacoby-off.txt',
+  'KR-TL_2026-10-08_resign-gammon': 'xg-text/KR-TL_2026-10-08_resign-gammon.txt',
 };
 
 for (const [name, twin] of Object.entries(TWINS)) {
@@ -44,6 +47,26 @@ test('xg: header fields (names, length, date, time, site) are read', () => {
   const money = readMatchBytes(bytes('xg-binary/me-XG_Roller__03-10-2026.xg'));
   assert.equal(money.match.matchLength, 0);
   assert.equal(money.match.rules.jacoby, true);
+});
+
+test('xg: a bear-off with a bigger die than needed is stored as "from - die" (down to -6), not -1', () => {
+  const r = readMatchBytes(bytes('xg-binary/KR-TL_2026-10-08_jacoby-on.xg'));
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  assert.ok(r.match.games[0].actions.some((a) => a.kind === 'move' && a.moves.some((m) => m.to === 0 && m.from < Math.max(...a.dice))));
+});
+
+test('money games and the Jacoby rule: a backgammon with the cube in the middle counts 1 with Jacoby, 3 without; a resigned gammon counts what was resigned', () => {
+  for (const ext of ['xg-binary/KR-TL_2026-10-08_%.xg', 'xg-text/KR-TL_2026-10-08_%.txt']) {
+    const game = (n) => {
+      const f = ext.replace('%', n);
+      const r = f.endsWith('.xg') ? readMatchBytes(bytes(f)) : readMatch(fs.readFileSync(path.join(FIXTURES, f), 'utf8'));
+      assert.equal(r.ok, true, f);
+      return [r.match.rules.jacoby, r.match.games[0].result, r.match.result.score];
+    };
+    assert.deepEqual(game('jacoby-on'), [true, { winner: 0, points: 1, kind: 'single', how: 'bearOff', cube: 1 }, [1, 0]], 'Jacoby: a backgammon with an unturned cube is a single game');
+    assert.deepEqual(game('jacoby-off'), [false, { winner: 0, points: 3, kind: 'backgammon', how: 'bearOff', cube: 1 }, [3, 0]]);
+    assert.deepEqual(game('resign-gammon'), [false, { winner: 0, points: 2, kind: 'single', how: 'resign', cube: 1 }, [2, 0]]);
+  }
 });
 
 test('xg: a file saved in the middle of a game is refused with a sentence and a way out', () => {

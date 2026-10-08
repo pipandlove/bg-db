@@ -8,7 +8,8 @@
  *                        date (Delphi TDateTime, double at 128), site (Pascal string at 283)
  *       1 game header    scores at the start (int32 at 12 and 16), game number (int32 at 48)
  *       2 cube record    one per turn: player (int32 at 12), doubled (int32 at 16 = 1), answer (int32 at 20: 0 pass, 1 take)
- *       3 move record    one per roll: player (int32 at 64: 1 or -1), steps (8 int32 at 68, from/to pairs, 0-based, from 24 = bar, to -1 = off, -1 ends),
+ *       3 move record    one per roll: player (int32 at 64: 1 or -1), steps (8 int32 at 68, from/to pairs, 0-based, from 24 = bar, to < 0 = off
+ *                        (from - die: -1 for an exact bear-off, down to -6 with a bigger die), -1 ends),
  *                        dice (int32 at 100 and 104)
  *       4 game footer    winner (int32 at 24: 1 or -1), points (28), how it ended (32: 0 cube dropped, 1 single, 2 gammon, 3 backgammon, 100 + n resigned)
  *       5 match footer
@@ -129,8 +130,8 @@ export function parseXg(bytes) {
           const from = v.getInt32(68 + 4 * k, true);
           const to = v.getInt32(72 + 4 * k, true);
           if (from === -1) break;
-          if (from < 0 || from > 24 || to < -1 || to > 23 || (to >= 0 && to >= from)) throw fail(`Game ${g.index}: a step that is not a forward step (${from} to ${to}).`);
-          moves.push({ from: from + 1, to: to + 1 });                       // 0-based points, 24 = bar, -1 = off  ->  1..25, 25 = bar, 0 = off
+          if (from < 0 || from > 24 || to < -6 || to > 23 || (to >= 0 && to >= from)) throw fail(`Game ${g.index}: a step that is not a forward step (${from} to ${to}).`);
+          moves.push({ from: from + 1, to: Math.max(to + 1, 0) });           // 0-based points, 24 = bar, below 0 = off  ->  1..25, 25 = bar, 0 = off
         }
         row++;
         g.actions.push({ side: s, kind: 'move', dice, moves, row });

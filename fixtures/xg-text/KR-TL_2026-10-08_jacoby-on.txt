@@ -1,0 +1,56 @@
+﻿; [Site ""]
+; [Match ID "anonymized"]
+; [Player 1 "TL"]
+; [Player 2 "KR"]
+; [Player 1 Elo "1600.00/0"]
+; [Player 2 Elo "1600.00/0"]
+; [EventDate "2026.10.08"]
+; [EventTime "18.00"]
+; [Variation "Backgammon"]
+; [Unrated "Off"]
+; [Jacoby "On"]
+; [Beaver "Off"]
+; [CubeLimit "1024"]
+
+0 point match
+
+ Game 1
+ KR : 0                                TL : 0
+  1)                                   63: 24/18 13/10                   
+  2) 31: 8/5 6/5                       11: 8/7(2) 6/5(2)                 
+  3) 61: 24/17*                        32: Bar/22 10/8*                  
+  4) 62: Bar/17*                       33: Bar/22 24/18 13/10            
+  5) 64: 17/11 6/2                     31: 18/14*                        
+  6) 32: Bar/22 24/22                  42: 18/14 13/11                   
+  7) 41: 13/8                          11: 11/9 10/9 6/5                 
+  8) 22: 8/4(2)                        32: 13/11 13/10                   
+  9) 64: 13/9 8/2                      51: 22/16*                        
+ 10) 64: Bar/15*                       42: Cannot Move                   
+ 11) 63: 15/9* 6/3*                    52: Cannot Move                   
+ 12) 63: 13/10 9/3                     62: Cannot Move                   
+ 13) 65: 22/17 13/7                    54: Cannot Move                   
+ 14) 54: 22/17 10/6                    43: Cannot Move                   
+ 15) 42: 17/15 13/9                    63: Cannot Move                   
+ 16) 41: 15/14* 9/5                    54: Cannot Move                   
+ 17) 31: 17/13                         44: Cannot Move                   
+ 18) 43: 14/7                          51: Bar/24                        
+ 19) 11: 13/12 5/4 2/1*(2)             32: Bar/23                        
+ 20) 52: 7/2* 4/2                      61: Cannot Move                   
+ 21) 62: 12/4                          54: Cannot Move                   
+ 22) 52: 7/Off                         41: Cannot Move                   
+ 23) 42: 6/Off                         61: Cannot Move                   
+ 24) 52: 6/4 6/1                       31: Cannot Move                   
+ 25) 61: 5/4 5/Off                     31: Cannot Move                   
+ 26) 21: 4/2 1/Off                     21: Cannot Move                   
+ 27) 31: 4/3 4/1                       31: Cannot Move                   
+ 28) 62: 4/2 4/Off                     65: Bar/20 Bar/19                 
+ 29) 22: 2/Off(4)                      51: Bar/20                        
+ 30) 61: 3/Off 1/Off                   31: Cannot Move                   
+ 31) 62: 3/1 3/Off                     32: Bar/22 20/18                  
+ 32) 64: 1/Off(2)                      64: 22/16 19/15                   
+ 33) 21: 1/Off                         
+      Wins 1 point
+
+
+
+

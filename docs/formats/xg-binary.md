@@ -18,7 +18,7 @@ The reader is `packages/core/src/xg.js` (it uses `inflate.js`, a small synchrono
 | 0 | match header | player 1 and 2: Pascal strings at 9 and 50; match length: int32 at 92 (`99999` = money game); Crawford, Jacoby, beaver: bytes 100, 101, 102; date and time: Delphi `TDateTime` (double, days since 1899-12-30) at 128; site: Pascal string at 283 |
 | 1 | game header | score at the start: int32 at 12 and 16; game number: int32 at 48 |
 | 2 | cube record | one per turn, even when nobody doubles. Player: int32 at 12; doubled: int32 at 16 (1 = yes); answer, in the same record: int32 at 20 (0 = pass, 1 = take). Other values (beaver, raccoon) are refused |
-| 3 | move record | one per roll. Player: int32 at 64 (1 or -1); up to four steps as eight int32 from 68 (from, to pairs; 0-based points, 24 = bar, -1 as `to` = off, -1 as `from` ends the list); dice: int32 at 100 and 104 |
+| 3 | move record | one per roll. Player: int32 at 64 (1 or -1); up to four steps as eight int32 from 68 (from, to pairs; 0-based points, 24 = bar, a negative `to` = off (it is `from` minus the die: -1 for an exact bear-off, down to -6 when a bigger die bears off a checker from a lower point; the tools up to v13 read only -1 and refused the others), -1 as `from` ends the list); dice: int32 at 100 and 104 |
 | 4 | game footer | winner: int32 at 24 (1 or -1); points: int32 at 28; how it ended: int32 at 32 (0 cube dropped, 1 single, 2 gammon, 3 backgammon, 100 + n resigned) |
 | 5 | match footer | not read |
 
