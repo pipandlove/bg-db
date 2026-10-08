@@ -289,7 +289,7 @@ Turns an issue made with the "Submit a match" form into a file of the inbox, if 
 ([contributing-flow.md](contributing-flow.md)). **The ZIP of the Contribute page dropped into the form** (the way the site shows): its link is read from the first box, it is downloaded (GitHub's attachment links only, over https, at most 25 MB),
 read like any ZIP of the inbox and reviewed against `--data` as the pull request will be. Only a contribution that can be merged, or that a maintainer must look at, becomes `inbox/issue-<n>.zip`;
 for errors, a match that can only be added partially, or nothing new, the answer says what to do on the Contribute page and the issue is edited with the new ZIP. The rights come from the box of the form or the
-statement in the ZIP. **A pasted match** becomes `inbox/issue-<n>.txt` when it is valid. The optional "Event" answer is added as a header only when the match has none. A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
+statement in the ZIP. **A pasted match** becomes `inbox/issue-<n>.txt` when it is valid. The "Event" answer and the "Add it partially" box of older forms are still read (the event is added as a header only when the match has none); the form of the template no longer asks them, since a match is checked and accepted partially on the Contribute page (decision 0025). A closed data repository refuses every issue (`V-CLOSED`). `--result` receives `{ok, file, errors, comment}`; the
 comment is the answer to post on the issue. Exit code 1 when the issue cannot be used, 2 for bad usage.
 
 ## bgdb hide-names

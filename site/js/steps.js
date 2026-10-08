@@ -14,7 +14,7 @@ import { el, toDom } from './svg.js';
 export const SHOTS = {
   form: {
     src: 'img/guide/form.png', w: 1022, h: 861,
-    alt: 'The "Submit a match" form on GitHub, empty: a title field that says "Matches", a short explanation, the box "Your matches", a field for the event, the rights box, the box for a partial match, and the green Create button.',
+    alt: 'The "Submit a match" form on GitHub, empty: a title field that says "Matches", a short explanation, the box "Your matches", the rights box and the green Create button.',
     marks: [
       { box: [52, 108, 961, 32], text: 'The title is filled in for you.' },
       { box: [53, 340, 960, 178], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
@@ -27,7 +27,7 @@ export const SHOTS = {
   },
   send: {
     src: 'img/guide/send.png', w: 975, h: 250,
-    alt: 'The bottom of the form: the rights box ticked, the box for a partial match left empty, and the green Create button.',
+    alt: 'The bottom of the form: the rights box ticked and the green Create button.',
     marks: [
       { box: [6, 26, 494, 22], text: 'Tick the rights box.' },
       { box: [861, 208, 105, 32], text: 'Press Create.' },

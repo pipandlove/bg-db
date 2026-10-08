@@ -16,10 +16,6 @@ body:
       description: Drag the ZIP from the Contribute page into this box (a line with its name appears; that is normal).
     validations:
       required: true
-  - type: input
-    id: event
-    attributes:
-      label: Event or site (optional, for pasted text)
   - type: checkboxes
     id: rights
     attributes:
@@ -27,11 +23,3 @@ body:
       options:
         - label: I have the right to share this under the CC0 public-domain dedication.
           required: true
-  - type: checkboxes
-    id: partial
-    attributes:
-      label: Partial match
-      description: For pasted text (in the ZIP, the Contribute page asks this itself). If some games of the match cannot be read, the rest can still be added, with those games kept by their result only or left out. You will be shown what would be kept first.
-      options:
-        - label: Add it partially if some games cannot be read.
-          required: false
