@@ -4,9 +4,10 @@
  * Data is only ever put into the page with textContent / setAttribute (never innerHTML).
  */
 import { loadAll, fetchJson, fetchText, suggestPlayers, suggestEvents } from './catalog.js';
-import { parseQuery, formatQuery, makePredicate, currentToken, quote, FLAG_BITS, FLAG_LABELS, FLAG_HELP } from './query.js';
+import { parseQuery, formatQuery, makePredicate, currentToken, quote, FLAG_BITS, FLAG_LABELS, FLAG_HELP, SYNTAX } from './query.js';
 import { h, download } from './dom.js';
 import { createReplay } from './replay.js';
+import { el, toDom } from './svg.js';
 import {
   lengthText, dateText, timeLabel, safeVideoUrl, parseMatchId, matchFiles, attachmentUrl,
   HOW_TEXT, KIND_TEXT, resultText, rulesText, LICENSE_LINKS,
@@ -98,9 +99,15 @@ function buildList(app) {
   });
   ui.suggest = h('ul', { id: 'suggest', class: 'suggest', role: 'listbox', hidden: true });
   const clear = h('button', { type: 'button', text: 'Clear', onclick: () => { ui.input.value = ''; closeSuggest(); onQueryChanged(); ui.input.focus(); } });
+  ui.filtersBtn = h('button', { type: 'button', text: 'Filters', 'aria-expanded': 'false', 'aria-controls': 'filters', onclick: () => showFilters(ui.filters.hidden) });
+  const help = h('button', { type: 'button', class: 'help-btn', title: 'How to search', 'aria-label': 'How to search', 'aria-haspopup': 'dialog', onclick: () => ui.help.showModal() },
+    toDom(el('svg', { viewBox: '0 0 20 20', width: 18, height: 18, 'aria-hidden': 'true' },
+      el('circle', { cx: 10, cy: 10, r: 8.5, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5 }),
+      el('path', { d: 'M7.6 7.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }),
+      el('circle', { cx: 10, cy: 14.6, r: 1, fill: 'currentColor' }))));
   const form = h('form', { class: 'search', role: 'search', onsubmit: (e) => { e.preventDefault(); closeSuggest(); } },
-    h('div', { class: 'search-box' }, h('label', { for: 'q', class: 'visually-hidden', text: 'Search matches' }), ui.input, ui.suggest), clear);
-  ui.viewList.append(form);
+    h('div', { class: 'search-box' }, h('label', { for: 'q', class: 'visually-hidden', text: 'Search matches' }), ui.input, help, ui.suggest), ui.filtersBtn, clear);
+  ui.viewList.append(form, buildHelp());
 
   // filter controls: they only rewrite the query text
   const [minY, maxY] = data.years;
@@ -115,14 +122,13 @@ function buildList(app) {
     ui.flags[k] = h('input', { type: 'checkbox', id: `f-${k}`, onchange: onControl });
     return h('label', { for: `f-${k}`, title: FLAG_HELP[k] }, ui.flags[k], FLAG_LABELS[k]);
   });
-  ui.details = h('details', { class: 'filters' },
-    h('summary', { text: 'Filters' }),
+  ui.filters = h('div', { id: 'filters', class: 'filters', hidden: true },
     h('div', { class: 'filter-grid' },
       minY !== null ? h('div', {}, h('label', { for: 'yf', text: 'Year' }), h('div', { class: 'year-pair' }, ui.yf, '–', ui.yt)) : null,
       h('div', {}, h('label', { for: 'len', text: 'Match length' }), ui.len),
       data.events.length ? h('div', {}, h('label', { for: 'ev', text: 'Event' }), ui.event) : null,
       h('fieldset', { class: 'flags' }, h('legend', { text: 'Only matches where' }), h('div', { class: 'flag-list' }, flagBoxes))));
-  ui.viewList.append(ui.details);
+  ui.viewList.append(ui.filters);
 
   ui.errors = h('p', { class: 'notice', hidden: true, role: 'status' });
   ui.loadErrors = data.errors.length ? h('p', { class: 'notice', text: data.errors.join(' ') }) : null;
@@ -175,7 +181,25 @@ function syncControls(f) {
   if (![...ui.len.options].some((o) => o.value === ui.len.value)) ui.len.value = '';
   ui.event.value = f.event.length === 1 && S.data.events.includes(f.event[0]) ? f.event[0] : '';
   for (const k of Object.keys(FLAG_BITS)) ui.flags[k].checked = f.has.includes(k);
-  if (f.year || f.len || f.event.length || f.has.length) ui.details.open = true;
+  if (f.year || f.len || f.event.length || f.has.length) showFilters(true);
+}
+
+function showFilters(open) {
+  ui.filters.hidden = !open;
+  ui.filtersBtn.setAttribute('aria-expanded', String(open));
+}
+
+/** the query language in a dialog opened by the "?" of the search box; each example runs when clicked */
+function buildHelp() {
+  const close = () => ui.help.close();
+  ui.help = h('dialog', { class: 'help', 'aria-labelledby': 'help-title', onclick: (e) => { if (e.target === ui.help) close(); } },
+    h('div', { class: 'help-head' }, h('h2', { id: 'help-title', text: 'How to search' }), h('button', { type: 'button', class: 'linklike', text: 'Close', onclick: close })),
+    h('table', {}, h('tbody', {}, SYNTAX.map(([q, what]) => h('tr', {},
+      h('td', {}, h('a', { href: `#q=${encodeQ(q)}`, onclick: (e) => { e.preventDefault(); close(); ui.input.value = q; onQueryChanged(); ui.input.focus(); } }, h('code', { text: q }))),
+      h('td', { text: what }))))),
+    h('p', { class: 'muted' }, 'Click an example to try it. Accents and capitals are ignored; several filters must all match. ',
+      h('a', { href: 'https://github.com/pipandlove/bgdb/blob/master/docs/site.md#the-query-language', target: '_blank', rel: 'noopener noreferrer', text: 'The full query language' })));
+  return ui.help;
 }
 
 function runSearch(resetPage) {
@@ -367,7 +391,7 @@ function renderMatch(meta, replay, shard, hash, files, id, back) {
     meta.event || meta.round ? dlItem('Event', [meta.event, meta.round].filter(Boolean).join(' · ')) : null,
     dlItem('Rules', rulesText(meta.rules)),
     dlItem('Source', [meta.provenance.site, meta.provenance.dialect].filter(Boolean).join(' · ') || '–'),
-    meta.provenance.origin === 'otb' ? dlItem('Names', 'Real names: played over the board') : null,
+    meta.provenance.origin === 'otb' ? dlItem('Played', 'Over the board') : null,
     meta.provenance.contributor ? dlItem('Added by', h('span', {}, h('a', { href: `./#q=${encodeQ(`by:${meta.provenance.contributor}`)}`, title: 'All the matches this account added', text: meta.provenance.contributor }),
       meta.provenance.submittedAt ? `, ${meta.provenance.submittedAt}` : '')) : null,
     lic ? dlItem('Licence', LICENSE_LINKS[lic] ? h('a', { href: LICENSE_LINKS[lic], rel: 'noopener noreferrer', text: lic }) : lic) : null,

@@ -237,7 +237,7 @@ test('the site is static and portable: relative URLs only, no inline script or s
     const raw = fs.readFileSync(path.join(dist, 'js', f), 'utf8');
     const src = raw.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');          // comments may mention what the code avoids
     assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(src), `${f} must not inject HTML or evaluate strings`);
-    assert.ok(!/fetch\(\s*['"`]\//.test(src) && !/https?:\/\/(?!www\.youtube\.com|creativecommons\.org|www\.w3\.org\/2000\/svg|github\.com\/\$\{repo\}|github\.com\/signup|youtu\.be\/…)/.test(src), `${f} has an absolute URL (only the SVG namespace identifier and the link targets YouTube, Creative Commons, the database's GitHub repository and GitHub's sign-up page are allowed; a placeholder text may show a youtu.be address)`);
+    assert.ok(!/fetch\(\s*['"`]\//.test(src) && !/https?:\/\/(?!www\.youtube\.com|creativecommons\.org|www\.w3\.org\/2000\/svg|github\.com\/\$\{repo\}|github\.com\/signup|github\.com\/pipandlove\/bgdb\/blob\/master\/docs\/|youtu\.be\/…)/.test(src), `${f} has an absolute URL (only the SVG namespace identifier and the link targets YouTube, Creative Commons, the database's GitHub repository and GitHub's sign-up page and the tools' docs are allowed; a placeholder text may show a youtu.be address)`);
     for (const m of src.matchAll(/from '(\.[^']+)'/g)) assert.ok(fs.existsSync(path.resolve(path.join(dist, 'js'), m[1])), `${f} imports a missing module ${m[1]}`);
   }
   assert.ok(fs.existsSync(path.join(dist, 'lib/core/names.js')));

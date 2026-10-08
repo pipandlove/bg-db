@@ -13,38 +13,41 @@ import { el, toDom } from './svg.js';
  */
 export const SHOTS = {
   form: {
-    src: 'img/guide/form.png', w: 1030, h: 833,
+    src: 'img/guide/form.png', w: 1022, h: 861,
     alt: 'The "Submit a match" form on GitHub, empty: a title field that says "Matches", a short explanation, the box "Your matches", a field for the event, the rights box, the box for a partial match, and the green Create button.',
     marks: [
-      { box: [54, 95, 960, 32], text: 'The title is filled in for you.' },
-      { box: [54, 270, 960, 177], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
+      { box: [52, 108, 961, 32], text: 'The title is filled in for you.' },
+      { box: [53, 340, 960, 178], get text() { return `Your ZIP goes into this box (step ${stepNo('send')}).`; } },
     ],
   },
   dropped: {
-    src: 'img/guide/dropped.png', w: 985, h: 280,
+    src: 'img/guide/dropped.png', w: 975, h: 240,
     alt: 'The box "Your matches" after the ZIP was dropped into it: it holds one line that starts with [matches-for-bgdb.zip] followed by the address of the file on GitHub.',
-    marks: [{ box: [24, 116, 670, 28], text: 'This line means that the ZIP is uploaded. It looks odd, but it is right: leave it as it is.' }],
+    marks: [{ box: [25, 117, 652, 22], text: 'This line means that the ZIP is uploaded. It looks odd, but it is right: leave it as it is.' }],
   },
   send: {
-    src: 'img/guide/send.png', w: 985, h: 255,
+    src: 'img/guide/send.png', w: 975, h: 250,
     alt: 'The bottom of the form: the rights box ticked, the box for a partial match left empty, and the green Create button.',
     marks: [
-      { box: [10, 28, 505, 26], text: 'Tick the rights box.' },
-      { box: [868, 211, 110, 36], text: 'Press Create.' },
+      { box: [6, 26, 494, 22], text: 'Tick the rights box.' },
+      { box: [861, 208, 105, 32], text: 'Press Create.' },
     ],
   },
   reply: {
-    src: 'img/guide/reply.png', w: 925, h: 310,
+    src: 'img/guide/reply.png', w: 912, h: 297,
     alt: 'The bot\'s first answer on the issue: "Thanks for the submission! I checked the 1 match of your ZIP", a table where the match is OK and "will be added", then "You do not need to do anything".',
     marks: [
-      { box: [22, 128, 560, 36], text: 'Each of your matches, and what happens to it.' },
-      { box: [16, 180, 884, 64], text: '"You do not need to do anything": the bot does the rest.' },
+      { box: [17, 125, 692, 34], text: 'Each of your matches, and what happens to it.' },
+      { box: [17, 177, 879, 62], text: '"You do not need to do anything": the bot does the rest.' },
     ],
   },
   done: {
-    src: 'img/guide/done.png', w: 925, h: 274,
-    alt: 'A few minutes later: the issue is closed, and the bot\'s last answer says "Done: 1 match is now in the database. Thank you!", with a link to the match.',
-    marks: [{ box: [226, 150, 166, 22], text: 'The link to your match on the site.' }],
+    src: 'img/guide/done.png', w: 912, h: 410,
+    alt: 'A few minutes later: the issue is closed as completed by the pull request of the bot, and its last answer says "Done: 1 match is now in the database. Thank you!", with a link to the match.',
+    marks: [
+      { box: [7, 83, 392, 22], text: 'The issue is closed: your match is in.' },
+      { box: [354, 296, 163, 20], text: 'The link to your match on the site.' },
+    ],
   },
   site: {
     src: 'img/guide/site.png', w: 1327, h: 907,

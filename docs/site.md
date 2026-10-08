@@ -19,9 +19,9 @@ Three pages: the search and replay page (`index.html`), the **Contribute** page 
 
 
 - **List** of all matches, newest first (undated last), 50 per page; on the same day by event, then by **round** in natural order (Round 2 before Round 10). Each row: date, both players with the score (the winner in bold), length, games, **event, round** and small tags (on phones the event and round go under the names).
-- **Search box** with a small query language, **suggestions** while you type (players, events), and a **Filters** panel (year, length, event, flags) that writes into the same query.
+- **Search box** with a small query language, **suggestions** while you type (players, events), and a **Filters** button next to Clear that opens a panel (year, length, event, flags) writing into the same query, and a small **?** in the search box that opens **How to search**: the query language below in short, each example a link that runs it, and a link to this section.
 - **Match page** (`#m=<shard>/<hash>`): the **replay** ([replay.md](replay.md)), then details, per-game table, notes (the transcriber's remarks and any illegal play that was made), YouTube links, downloads (the normalised `.mat`, the replay JSON, and the attached SGF/XG files with badges for
-  "with analysis" and "checked against the match"). The details say "Real names: played over the board" for such a match, and "Added by" links to the
+  "with analysis" and "checked against the match"). The details say "Played: Over the board" for a match declared so, and "Added by" links to the
   `by:` search of that account. At the bottom, "Ask for its removal" opens the "Remove a match" issue form of the current data repository with the match
   number filled in (decision 0025). The replay is described in [replay.md](replay.md).
 - **Shareable URLs:** the state is in the address (`#q=player:smith+year:2019..2024&p=2`), so a result list or a match can be linked to. Back and forward work.

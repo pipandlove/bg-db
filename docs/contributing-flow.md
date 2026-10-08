@@ -43,7 +43,7 @@ after a change. So the Contribute page replaces the names **before** anything le
   again). Each rewritten file must read back to the same match and must no longer contain the old names, or it is left out with a note on
   the card. A declared illegal play is written into the normalised file itself.
 - **Played over the board** (a tournament, a club, at home): the card of each match has a box for it. Ticked, the files are sent as they
-  are, with their real names, event and place, and `"origin": "otb"` in their `.bgdb.json`; the match page then says "Real names". The box
+  are, with their real names, event and place, and `"origin": "otb"` in their `.bgdb.json`; the match page then says "Played: Over the board". The box
   is not offered when the file names an online platform, and the review refuses that combination (`V-ORIGIN`).
 - **The safety net:** a data repository has `"names": "pseudonyms"` in its `bgdb.config.json`: its review and its ingest refuse a match
   that is not declared over the board when a player of it, or of its SGF or XG file, is not a pseudonym (`V-HANDLE`). By then the file is

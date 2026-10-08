@@ -21,6 +21,19 @@ export const FLAG_HELP = {
   illegal: 'an illegal play was made in the match and is kept as played',
 };
 
+/** The search help under the search box: an example to click, and what it finds (the same table as docs/site.md) */
+export const SYNTAX = [
+  ['player:smith', 'a match where that player took part (part of a name is enough; quotes for two words: player:"Dale Henderson")'],
+  ['player:dale player:matthew', 'a match between the two'],
+  ['event:final', 'part of the event name'],
+  ['round:"match 2"', 'part of the round name'],
+  ['year:2019..2024', 'one year (year:2021) or a range (year:..2020, year:2025..)'],
+  ['len:7', 'match length; len:5..9 a range, len:money a money game'],
+  ['has:cube,video', `only matches with all of these: ${Object.keys(FLAG_BITS).join(', ')}`],
+  ['by:octocat', 'matches added by that GitHub account'],
+  ['smith', 'any other word: in a player, event or round name'],
+];
+
 /** Split into {key, value} tokens; quotes group words: player:"Dale Henderson". key is null for bare words. */
 export function tokenize(q) {
   const s = String(q ?? '');
