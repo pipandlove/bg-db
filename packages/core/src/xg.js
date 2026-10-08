@@ -14,7 +14,7 @@
  *       4 game footer    winner (int32 at 24: 1 or -1), points (28), how it ended (32: 0 cube dropped, 1 single, 2 gammon, 3 backgammon, 100 + n resigned)
  *       5 match footer
  *   - Player 1 is the first name and has ActiveP = 1: it becomes side 0 of the model.
- * Analysis (equities, errors) is not read: the file is kept as an attachment instead. Whether it carries analysis is detected.
+ * The analysis (the error of each decision and its level) is read by analysis.js (xgAnalysis) from the same records.
  */
 import { BgdbError } from './errors.js';
 import { inflateZlib } from './inflate.js';
@@ -64,17 +64,23 @@ function hasEvaluation(rec) {
   return false;
 }
 
+/** the records of 2 560 bytes of the match (the type is the byte at offset 8) */
+export function xgRecords(bytes) {
+  if (!isXg(bytes)) throw fail('This is not an eXtreme Gammon file (it does not start with "RGMH").');
+  const data = mainStream(bytes);
+  if (!data) throw fail('The game records of this eXtreme Gammon file could not be found: the file is damaged or from a version of XG that is not supported yet.', 'Export the match from eXtreme Gammon as text (.txt) and submit that file next to the .xg.');
+  const recs = [];
+  for (let i = 0; i < data.length; i += REC) recs.push(data.subarray(i, i + REC));
+  return recs;
+}
+
 /**
  * @param {Uint8Array} bytes the whole file
  * @returns {object} the match (same shape as the output of parseMat), not yet validated
  * @throws {BgdbError} V-FORMAT with a sentence a person can act on
  */
 export function parseXg(bytes) {
-  if (!isXg(bytes)) throw fail('This is not an eXtreme Gammon file (it does not start with "RGMH").');
-  const data = mainStream(bytes);
-  if (!data) throw fail('The game records of this eXtreme Gammon file could not be found: the file is damaged or from a version of XG that is not supported yet.', 'Export the match from eXtreme Gammon as text (.txt) and submit that file next to the .xg.');
-  const recs = [];
-  for (let i = 0; i < data.length; i += REC) recs.push(data.subarray(i, i + REC));
+  const recs = xgRecords(bytes);
   const head = recs[0];
   const hv = view(head);
 

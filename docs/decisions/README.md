@@ -25,6 +25,7 @@ Format: context, decision, consequences. Status: accepted / proposed / supersede
 | [0014](0014-replay-design.md) | Replay: the position before the play, arrows and ghosts | accepted |
 | [0013](0013-illegal-plays-made-in-real-matches.md) | Illegal plays made in real matches are kept as played, when declared | accepted |
 | [0010](0010-privacy-and-anonymisation.md) | Privacy: anonymised match IDs, handles kept | accepted; names superseded by 0025 |
+| [0026](0026-analysis-reading-and-normalising.md) | Analysis read from `.sgf` and `.xg` (the decisions, not the summaries), one PR rule and one set of thresholds, levels in tiers, twins to reconcile the engines, players ranked | proposed; readers built and checked on twins |
 | [0025](0025-online-players-otb-names-and-erasure.md) | Online players under pseudonyms (a key per contributor, rewritten before upload), real names over the board, `bgdb erase` | accepted: pseudonyms with a key per contributor, real names over the board, `bgdb erase`, `V-HANDLE`, `by:` search, built |
 | [0024](0024-data-repositories.md) | Tools and site in one repository, data in a series of data repositories (`bgdb-data-1`, `-2`, ...): warn, stop, switch by hand | accepted, built |
 | [0023](0023-transcriptions-of-one-match.md) | Transcriptions of one match: recognised by their rolls, the better file kept (`superseded`), a person chooses between two valid copies (`near-duplicate`, `reject`) | accepted |

@@ -15,6 +15,7 @@ export * from './xgid.js';
 export * from './gnubgid.js';
 export { detectFormat, readMatch, readMatchBytes, parseMatchBytes } from './read.js';
 export { parseXg, isXg } from './xg.js';
+export { sgfAnalysis, xgAnalysis, summarise, classOf, CLASSES } from './analysis.js';
 export { inflateRaw, inflateZlib } from './inflate.js';
 export { readZip, ZIP_LIMITS } from './zip.js';
 export { decodeText } from './text.js';

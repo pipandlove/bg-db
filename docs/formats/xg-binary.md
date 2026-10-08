@@ -25,8 +25,28 @@ The reader is `packages/core/src/xg.js` (it uses `inflate.js`, a small synchrono
 Player 1 (the first name, `ActiveP` = 1) is side 0 of the model. A chained step such as `13/7/4` is written by XG as two steps, so the reader gives the same
 moves as the text.
 
-**Analysis** (equities, errors, rollouts) is **not read**: the file is kept as an attachment. The reader only detects whether the cube records hold
-plausible single-precision numbers from offset 124, which sets `analysis.present`. The analysis display (M6) needs these records too.
+**Analysis.** The match reader only detects it (plausible single-precision numbers from offset 124 of the cube records: `analysis.present`).
+`xgAnalysis` (`packages/core/src/analysis.js`, [decision 0026](../decisions/0026-analysis-reading-and-normalising.md)) reads the error of each decision.
+The offsets follow the open-source xgdatatools and were checked on the fixtures: the cube error is the one given by the three equities in all 611
+analysed cube decisions, and the errors and unforced plays agree with gnubg's analysis of the same matches.
+
+| Record | Offset | Field |
+|---|---|---|
+| move (3) | 9 | position before the play: 26 signed bytes, always seen by player 1: points 1..24 (> 0 player 1, < 0 player 2, in player 1's numbering), 25 = player 1's bar, 0 = player 2's |
+| move (3) | 2312 | error of the play: double, ≤ 0, in EMG; -1000 = not analysed |
+| move (3) | 2320 | luck of the roll: double |
+| move (3) | 1280 | level of each candidate play: int16 every 4 bytes (same codes) |
+| move (3) | 2472 | level of the analysis of the play: int32 (codes below) |
+| cube (2) | 16 | doubled: 1 = yes, 0 = no, **-2 = the cube was not available** (no decision) |
+| cube (2) | 92 | level of the analysis of the cube decision: int32 (codes below) |
+| cube (2) | 124 | evaluation: 7 floats (probabilities, cubeless equity) |
+| cube (2) | 152, 156, 160 | no double, double/take, double/pass: floats in EMG (double/pass = 1) |
+| cube (2) | 200 | error of the cube action: double, EMG; -1000 = not analysed |
+| cube (2) | 216 | error of the answer (take or pass): double, ≤ 0 |
+
+Level codes, checked against what XG 2.10 shows for the same decisions (a play: candidates at 4-ply, 4-ply, 3-ply, 3-ply stored as 3, 3, 2, 2;
+a redouble "Analyzed in XG Roller+" stored as 1001): **n = (n + 1)-ply**, **1001 = XG Roller+** (1000 and 1002 are taken as XG Roller and Roller++).
+XG analyses each cube decision only as deep as needed: in one match, clear ones at 2-ply, close ones at 4-ply or XG Roller+.
 
 ## What the reader refuses, with a sentence
 
@@ -46,4 +66,4 @@ An `.xg` is read like any other format: **alone it is the match** (its identifie
 verified against it and kept as a verified attachment, and `bgdb enrich --xg` does the same for a match already in the database. Because of the licence caveat in spec
 requirement RP-04, check the rights before redistributing analysis produced by XG.
 
-What is **not** known yet: files from other versions of XG, rollout and match-equity data inside the records, and the games of a file that holds several matches.
+What is **not** known yet: files from other versions of XG, XG Roller and Roller++ codes (not seen yet), rollouts, the candidate plays and their equities (in the move record, before offset 2312), and the games of a file that holds several matches.

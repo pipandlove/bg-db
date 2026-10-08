@@ -7,7 +7,8 @@
 import { BgdbError } from './errors.js';
 import { BAR, OFF } from './rules.js';
 
-export function parseSgf(text) {
+/** the game trees of an SGF file: one list of nodes per game, each node a map of property to its values */
+export function sgfTrees(text) {
   const src = text.replace(/^\uFEFF/, '');
   let pos = 0;
   const trees = [];
@@ -57,6 +58,12 @@ export function parseSgf(text) {
     trees.push(nodes);
   }
   if (trees.length === 0) throw err('No game found');
+  return trees;
+}
+
+export function parseSgf(text) {
+  const trees = sgfTrees(text);
+  const err = (msg) => new BgdbError('V-FORMAT', msg, { hint: 'Is this a GNU Backgammon SGF file (GM[6])?' });
 
   const first = trees[0][0];
   if (!first.GM || first.GM[0] !== '6') throw err('Not a backgammon SGF (GM[6] missing)');
