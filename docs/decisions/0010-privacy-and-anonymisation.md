@@ -2,7 +2,7 @@
 
 # 0010 - Privacy: anonymised match IDs, handles kept
 
-**Status:** accepted
+**Status:** accepted. Its rule on names ("ingestion keeps player names and handles") is under review: [decision 0025](0025-online-players-otb-names-and-erasure.md) proposes pseudonyms for online players, real names over the board, and erasure (undecided).
 
 **Context.** Real match files carry identifiers that point back to a site's records (`Match ID`), player handles, sometimes real names (tournament
 transcripts), and a `Transcriber` credit. The project owner decided that **match identifiers may be anonymised and handles do not need to be**.
