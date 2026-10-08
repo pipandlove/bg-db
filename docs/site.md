@@ -36,6 +36,7 @@ Three pages: the search and replay page (`index.html`), the **Contribute** page 
 | `event:final` | part of the event name |
 | `round:"match 2"`, `round:1` | part of the round name (the Round column; `"match 2"` as a plain word finds it too) |
 | `year:2021`, `year:2019..2024`, `year:..2020`, `year:2025..` | one year or a range (undated matches are excluded when a year is asked for) |
+| `date:24-02-2026`, `date:2026-02-24`, `date:2026-02`, `date:2026-02-01..2026-02-15` | one day (day-month-year or year-month-day, with `-`, `/` or `.`), one month, or a range of them; a match dated less precisely (only its year) is not in a day or month, and undated matches are excluded |
 | `len:7`, `len:5..9`, `len:money` | match length; `money` is a money game |
 | `has:cube,gammon,resign,analysis,attachment,video,illegal` | only matches where all of these are true (cube turned, gammon or backgammon, a game ended by resignation, analysed file attached, SGF/XG attached, video link, an illegal play was made and kept as played) |
 | `by:octocat` | matches added by that GitHub account (the whole login, any case; a leading `@` is ignored): a contributor finds their own matches whatever the names in them (decision 0025) |

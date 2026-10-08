@@ -126,7 +126,13 @@ test('query language: parsing, quoting, round trip', () => {
   assert.deepEqual(q.parseQuery('len:5..').len, { min: 5, max: null });
   assert.equal(q.formatQuery(q.parseQuery('year:2021')), 'year:2021');
   assert.equal(q.formatQuery(q.parseQuery('vs:abc')), 'player:abc');
-  for (const bad of ['year:abc', 'len:..', 'has:nonsense', 'colour:red']) assert.equal(q.parseQuery(bad).errors.length, 1, bad);
+  assert.deepEqual(q.parseQuery('date:24-02-2026').date, { min: '2026-02-24', max: '2026-02-24' }, 'day-month-year');
+  assert.deepEqual(q.parseQuery('date:2026-2-4').date, { min: '2026-02-04', max: '2026-02-04' });
+  assert.deepEqual(q.parseQuery('date:24/02/2026..').date, { min: '2026-02-24', max: null });
+  assert.deepEqual(q.parseQuery('date:02-2026').date, { min: '2026-02', max: '2026-02' }, 'a month');
+  assert.equal(q.formatQuery(q.parseQuery('date:24.02.2026')), 'date:2026-02-24');
+  assert.equal(q.formatQuery(q.parseQuery('date:..2026-02')), 'date:..2026-02');
+  for (const bad of ['year:abc', 'len:..', 'has:nonsense', 'colour:red', 'date:2026-13-01', 'date:32-01-2026', 'date:..', 'date:soon']) assert.equal(q.parseQuery(bad).errors.length, 1, bad);
   assert.deepEqual(q.tokenize('a:"b c" d'), [{ key: 'a', value: 'b c' }, { key: null, value: 'd' }]);
   assert.deepEqual(q.tokenize('player:"open quote'), [{ key: 'player', value: 'open quote' }]);
 });
@@ -146,6 +152,12 @@ test('query language: searching the real catalog', () => {
   assert.equal(find('year:2021').length, 1);
   assert.equal(find('year:2026..').length, 7, 'the undated match is excluded when a year is asked for');
   assert.equal(find('year:1990').length, 0);
+  const day = M.rows.find((r) => r.date.length === 10).date;
+  const sameDay = M.rows.filter((r) => r.date === day).length;
+  assert.equal(find(`date:${day}`).length, sameDay);
+  assert.equal(find(`date:${day.split('-').reverse().join('-')}`).length, sameDay, 'the same day written day-month-year');
+  assert.equal(find(`date:${day.slice(0, 7)}`).length, M.rows.filter((r) => r.date.startsWith(day.slice(0, 7))).length, 'a month');
+  assert.equal(find('date:2026-01-01..').length, M.rows.filter((r) => r.date.length === 10 && r.date >= '2026-01-01').length, 'a range of days');
   assert.equal(find('has:video').length, 2);
   assert.equal(find('has:illegal').length, 1, 'the match with an illegal play that was made');
   assert.equal(find('has:illegal player:simon').length, 1);

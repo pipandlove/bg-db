@@ -10,7 +10,7 @@ Search combines a free-text part and structured filters (facets). All queries ar
 |:--------------------------------|:------------------------------------------------------------------|
 | `player:`                       | Matches where a player (any alias) took part; `vs:` for the pair. |
 | `event:`, `collection:`, `tag:` | Context filters.                                                  |
-| `year:`                         | Single year or range.                                             |
+| `year:`, `date:`                | Single year or range; a day or a month, or a range of them.       |
 | `len:`                          | Match length (`0` for money games).                               |
 | `result:`                       | Winner, gammon or backgammon present.                             |
 | `score:`                        | Match score reached (for example 2-away/2-away).                  |
@@ -20,7 +20,7 @@ Search combines a free-text part and structured filters (facets). All queries ar
 
 ## Implemented so far (M3)
 
-`player:` (also `vs:`; two players mean a match between them), `event:`, `round:`, `year:`, `len:` (with `money`), `has:` (`cube`, `gammon`, `resign`, `analysis`, `attachment`, `video`, `illegal`, matching catalog flags
+`player:` (also `vs:`; two players mean a match between them), `event:`, `round:`, `year:`, `date:` (a day, a month or a range), `len:` (with `money`), `has:` (`cube`, `gammon`, `resign`, `analysis`, `attachment`, `video`, `illegal`, matching catalog flags
 2, 1, 8, 4, 16, 32, 64) and bare words; suggestions for players and events; the query in the URL fragment. See [site.md](../site.md) for the syntax. The other filters of the table are still to do.
 
 ## Behaviour and budgets
